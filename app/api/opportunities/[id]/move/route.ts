@@ -3,6 +3,12 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { db } from "@/lib/db"
 
+interface MoveOpportunityRequest {
+  stage: string | undefined
+  index?: number
+  oldStageId?: string
+}
+
 export async function PATCH(request: NextRequest, { params }: { params: { id: string } }) {
   try {
     const session = await getServerSession(authOptions)
@@ -10,7 +16,7 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { stage, index, oldStageId } = await request.json()
+    const { stage, index, oldStageId } = await request.json() as MoveOpportunityRequest
 
     // Find the stage by ID or name to get the stage object
     const stageRecord = await db.stage.findFirst({

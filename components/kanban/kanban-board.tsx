@@ -1,11 +1,12 @@
 "use client"
 
 import { useState, useRef, useEffect, useCallback } from "react"
-import { DndContext, DragEndEvent, DragStartEvent, DragOverlay, UniqueIdentifier, PointerSensor, useSensor, useSensors, closestCenter, pointerWithin, rectIntersection, CollisionDetection } from "@dnd-kit/core"
+import { DndContext, DragEndEvent, DragStartEvent, DragOverlay, UniqueIdentifier, PointerSensor, useSensor, useSensors, closestCenter, pointerWithin, rectIntersection, CollisionDetection, useDroppable } from "@dnd-kit/core"
 import { arrayMove } from "@dnd-kit/sortable"
 import { restrictToWindowEdges } from "@dnd-kit/modifiers"
 import KanbanColumn from "./kanban-column"
-import { OpportunityModal } from "@/components/modals/opportunity-modal"
+import { AddOpportunityModal } from "@/components/modals/add-opportunity-modal"
+import { EditOpportunityModal } from "@/components/modals/edit-opportunity-modal"
 import { Button } from "@/components/ui/button"
 import { Plus } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -14,7 +15,36 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { toast } from "@/hooks/use-toast"
 
-// Mock data - will be replaced with real API calls
+// Development mode flag - set to true to bypass API calls for testing
+const DEV_MODE = process.env.NODE_ENV === 'development'
+
+// Stage Drop Zone Component for reordering stages
+function StageDropZone({ beforeIndex }: { beforeIndex: number }) {
+  const { setNodeRef, isOver } = useDroppable({
+    id: `stage-position-${beforeIndex}`
+  })
+
+  return (
+    <div
+      ref={setNodeRef}
+      className={`flex-shrink-0 w-16 h-full flex items-center justify-center transition-all duration-200 ${
+        isOver
+          ? 'bg-blue-100 border-2 border-blue-400 border-dashed rounded-xl'
+          : 'bg-transparent hover:bg-slate-100/50'
+      }`}
+      style={{ minWidth: '4rem' }}
+    >
+      {isOver && (
+        <div className="text-center text-blue-600">
+          <div className="text-2xl font-bold mb-1">⬇</div>
+          <div className="text-xs font-medium">Drop here</div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// Mock stages for development mode
 const mockStages = [
   { id: "stage-lead-gen", name: "Lead Generation", color: "#3b82f6", order: 1 },
   { id: "stage-qualification", name: "Qualification", color: "#f59e0b", order: 2 },
@@ -23,10 +53,11 @@ const mockStages = [
   { id: "stage-closed", name: "Won/Lost/Closed", color: "#10b981", order: 5 },
 ]
 
-const mockOpportunities = [
+  const mockOpportunities = [
   {
     id: "opp-1",
     title: "AI-Powered Data Analytics Platform for Defense Intelligence",
+    description: "Development and implementation of an advanced data analytics platform using AI/ML technologies for defense intelligence applications.",
     agency: "Department of Defense",
     contractVehicle: "SAM.gov",
     solicitationNumber: "W52P1J-24-R-0001",
@@ -34,14 +65,25 @@ const mockOpportunities = [
     estimatedValueMax: 2000000,
     dueDate: new Date("2024-12-15"),
     currentStageId: "stage-qualification",
+    stage: "QUALIFIED" as const,
     priority: "HIGH" as const,
     probability: 75,
     opportunityType: "RFP" as const,
     technicalFocus: ["AI/ML", "Data Analytics", "Cloud Computing"],
+    value: "2000000",
+    closeDate: "2024-12-15",
+    companyId: "mock-company-1",
+    assignedToId: "mock-user-1",
+    samGovId: "W52P1J-24-R-0001",
+    naicsCode: "541512",
+    setAsideType: "SMALL_BUSINESS" as const,
+    contractType: "FIXED_PRICE" as const,
+    placeOfPerformance: "Washington, DC",
   },
   {
     id: "opp-2",
     title: "Cybersecurity Assessment and Monitoring Services",
+    description: "Comprehensive cybersecurity assessment and continuous monitoring services for government systems.",
     agency: "General Services Administration",
     contractVehicle: "GSA Schedule",
     solicitationNumber: "GS-35F-0001AA",
@@ -49,14 +91,25 @@ const mockOpportunities = [
     estimatedValueMax: 500000,
     dueDate: new Date("2024-11-30"),
     currentStageId: "stage-proposal",
+    stage: "PROPOSAL" as const,
     priority: "MEDIUM" as const,
     probability: 60,
     opportunityType: "RFQ" as const,
     technicalFocus: ["Cybersecurity", "Risk Assessment", "Compliance"],
+    value: "500000",
+    closeDate: "2024-11-30",
+    companyId: "mock-company-2",
+    assignedToId: "mock-user-2",
+    samGovId: "GS-35F-0001AA",
+    naicsCode: "541512",
+    setAsideType: "WOMAN_OWNED" as const,
+    contractType: "TIME_AND_MATERIALS" as const,
+    placeOfPerformance: "New York, NY",
   },
   {
     id: "opp-3",
     title: "Cloud Migration and Modernization Initiative",
+    description: "Large-scale cloud migration and modernization project for NASA's computing infrastructure.",
     agency: "NASA",
     contractVehicle: "SAM.gov",
     solicitationNumber: "NNH24ZDA001N",
@@ -64,10 +117,20 @@ const mockOpportunities = [
     estimatedValueMax: 5000000,
     dueDate: new Date("2025-01-20"),
     currentStageId: "stage-lead-gen",
+    stage: "LEAD" as const,
     priority: "HIGH" as const,
     probability: 40,
     opportunityType: "BAA" as const,
     technicalFocus: ["Cloud Computing", "DevOps", "System Integration"],
+    value: "5000000",
+    closeDate: "2025-01-20",
+    companyId: "mock-company-3",
+    assignedToId: "mock-user-3",
+    samGovId: "NNH24ZDA001N",
+    naicsCode: "541513",
+    setAsideType: "HUBZONE" as const,
+    contractType: "COST_PLUS" as const,
+    placeOfPerformance: "Houston, TX",
   },
 ]
 
@@ -85,6 +148,9 @@ export function KanbanBoard() {
   })
   const [activeId, setActiveId] = useState<UniqueIdentifier | null>(null)
   const [activeItem, setActiveItem] = useState<any>(null)
+  const [activeStage, setActiveStage] = useState<any>(null)
+  const [isStageDragging, setIsStageDragging] = useState(false)
+  const [loading, setLoading] = useState(false)
 
   // Development mode flag - set to true to bypass API calls for testing
   const DEV_MODE = process.env.NODE_ENV === 'development'
@@ -103,6 +169,18 @@ export function KanbanBoard() {
 
     // Fallback to closest center for better drop zones
     return closestCenter(args)
+  }, [])
+
+  // Enhanced collision detection specifically for stages (horizontal reordering)
+  const stageCollisionDetection: CollisionDetection = useCallback((args) => {
+    // Try closest center first for horizontal reordering
+    const closest = closestCenter(args)
+    if (closest.length > 0) {
+      return closest
+    }
+
+    // Fallback to rect intersection for better horizontal detection
+    return rectIntersection(args)
   }, [])
 
   // Enhanced sensors with better touch support
@@ -429,6 +507,77 @@ export function KanbanBoard() {
     }
   }, [handlePointerMove])
 
+  // Load data on component mount
+  useEffect(() => {
+    const loadData = async () => {
+      if (DEV_MODE) {
+        // In development mode, use mock data
+        console.log("[KANBAN] Dev mode: Using mock data")
+        return
+      }
+
+      setLoading(true)
+      try {
+        // Load stages from API
+        const stagesResponse = await fetch('/api/stages')
+        if (stagesResponse.ok) {
+          const pipelineStages = await stagesResponse.json()
+          if (pipelineStages.length > 0) {
+            setStages(pipelineStages.map((stage: any) => ({
+              id: stage.id,
+              name: stage.name,
+              color: stage.color,
+              order: stage.order
+            })))
+          }
+        }
+
+        // Load opportunities from API
+        const opportunitiesResponse = await fetch('/api/opportunities')
+        if (opportunitiesResponse.ok) {
+          const pipelineOpportunities = await opportunitiesResponse.json()
+          setOpportunities(pipelineOpportunities.map((opp: any) => ({
+            id: opp.id,
+            title: opp.title,
+            description: opp.description || "",
+            agency: opp.agency || "",
+            contractVehicle: opp.contractVehicle || "",
+            solicitationNumber: opp.solicitationNumber || "",
+            estimatedValueMin: opp.estimatedValueMin || 0,
+            estimatedValueMax: opp.estimatedValueMax || 0,
+            dueDate: opp.dueDate ? new Date(opp.dueDate) : undefined,
+            currentStageId: opp.currentStageId,
+            stage: "LEAD" as const, // This would need proper mapping
+            priority: (opp.priority || "MEDIUM") as const,
+            probability: opp.probability || 0,
+            opportunityType: (opp.opportunityType || "RFP") as const,
+            technicalFocus: opp.technicalFocus || [],
+            value: opp.estimatedValueMax?.toString() || "0",
+            closeDate: opp.dueDate || "",
+            companyId: opp.companyId || "",
+            assignedToId: opp.assignedToId || "",
+            samGovId: opp.samGovId || "",
+            naicsCode: opp.naicsCodes?.[0] || "",
+            setAsideType: opp.setAsideType,
+            contractType: opp.contractType,
+            placeOfPerformance: opp.placeOfPerformance || "",
+          })))
+        }
+      } catch (error) {
+        console.error("[KANBAN] Error loading data:", error)
+        toast({
+          title: "Error loading data",
+          description: "Failed to load pipeline data. Using demo data.",
+          variant: "destructive",
+        })
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    loadData()
+  }, [])
+
   // Enhanced modal handlers
   const handleEdit = useCallback((opportunityId: string) => {
     const opp = opportunities.find((o) => o.id === opportunityId)
@@ -505,6 +654,150 @@ export function KanbanBoard() {
       description: `"${stage?.name}" has been removed.`,
     })
   }, [stages, getOpportunitiesForStage, toast])
+
+  // Stage reordering functionality
+  const onStageDragStart = useCallback((event: DragStartEvent) => {
+    const { active } = event
+    console.log('[STAGES] Stage drag started');
+
+    const activeId = active.id as string
+    const stageId = activeId.replace('_stage', '') // Remove _stage suffix
+    const stage = stages.find(s => s.id === stageId)
+
+    console.log('[STAGES] Looking for stage:', stageId, 'Found stage:', stage);
+
+    setActiveId(activeId)
+    setActiveStage(stage)
+    setIsStageDragging(true)
+
+    document.body.style.cursor = 'grabbing'
+  }, [stages])
+
+  const onStageDragEnd = useCallback(async (event: DragEndEvent) => {
+    const { active, over } = event
+    console.log('[STAGES] Stage drag ended', { active: active.id, over: over?.id });
+
+    if (!over) {
+      cleanupStageDrag()
+      return
+    }
+
+    const activeId = active.id as string
+    const overId = over.id as string
+
+    const stageId = activeId.replace('_stage', '') // Remove _stage suffix
+    const activeIndex = stages.findIndex(stage => stage.id === stageId)
+
+    console.log('[STAGES] Stage ID:', stageId, 'Active Index:', activeIndex);
+
+    if (activeIndex === -1) {
+      cleanupStageDrag()
+      return
+    }
+
+    // Determine the target position based on drop zone or stage
+    let targetIndex = -1
+
+    if (overId.includes('stage-position-')) {
+      // Dropping on a stage position drop zone
+      const positionIndex = parseInt(overId.replace('stage-position-', ''), 10)
+      targetIndex = positionIndex
+    } else {
+      // Dropping on another stage - insert after the over stage
+      const overStageId = overId.replace('_stage', '') // Remove _stage suffix if present
+      const overIndex = stages.findIndex(stage => stage.id === overStageId)
+      if (overIndex === -1) {
+        console.log('[STAGES] Could not find stage with ID:', overStageId, 'from overId:', overId);
+        cleanupStageDrag()
+        return
+      }
+      // If dropping on another stage, insert at the over stage's position (before it)
+      targetIndex = overIndex
+    }
+
+    // Don't reorder if dropping in the same position
+    if (targetIndex === activeIndex) {
+      cleanupStageDrag()
+      return
+    }
+
+    // Reorder stages locally - move item from activeIndex to targetIndex
+    const reorderedStages = arrayMove(stages, activeIndex, targetIndex)
+
+    // Update orders in the reordered array
+    const updatedStages = reorderedStages.map((stage, index) => ({
+      ...stage,
+      order: index + 1
+    }))
+
+    setStages(updatedStages)
+
+    // Persist to backend
+    try {
+      if (!DEV_MODE) {
+        // Send the complete new order to the API
+        const stageUpdates = updatedStages.map((stage, index) => ({
+          id: stage.id,
+          order: index + 1
+        }))
+
+        const response = await fetch(`/api/stages/reorder`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ stages: stageUpdates }),
+        })
+
+        if (!response.ok) {
+          throw new Error(`API call failed: ${response.status}`)
+        }
+
+        const result = await response.json()
+        console.log('[STAGES] API success:', result)
+      } else {
+        // Simulate API delay in dev mode
+        await new Promise(resolve => setTimeout(resolve, 200))
+        console.log('[STAGES] Dev mode: Stage reordering simulated')
+      }
+
+      toast({
+        title: "Stages reordered",
+        description: "Pipeline stages have been reordered successfully.",
+      })
+
+    } catch (error) {
+      console.error('[STAGES] Stage reorder failed:', error)
+
+      // Revert optimistic update on error
+      setStages(stages)
+
+      toast({
+        title: "Reorder failed",
+        description: "Failed to reorder stages. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      cleanupStageDrag()
+    }
+  }, [stages, DEV_MODE, toast])
+
+  const onStageDragCancel = useCallback(() => {
+    console.log('[STAGES] Stage drag cancelled');
+    cleanupStageDrag()
+    toast({
+      title: "Stage drag cancelled",
+      description: "Stage reordering was cancelled.",
+    })
+  }, [])
+
+  const cleanupStageDrag = useCallback(() => {
+    console.log('[STAGES] Stage drag cleanup');
+
+    setActiveId(null)
+    setActiveStage(null)
+    setIsStageDragging(false)
+
+    document.body.style.cursor = ''
+  }, [])
 
   const handleStageModalSave = useCallback(() => {
     if (!stageFormData.name.trim()) {
@@ -592,15 +885,6 @@ export function KanbanBoard() {
             Add Stage
           </Button>
 
-          <div className="text-right">
-            <div className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-1">Pipeline Health</div>
-            <div className="flex items-center gap-2">
-              <div className="flex-1 bg-slate-200 rounded-full h-2">
-                <div className="bg-gradient-to-r from-green-400 to-emerald-500 h-2 rounded-full transition-all duration-500 ease-out" style={{width: '85%'}}></div>
-              </div>
-              <div className="text-2xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">85%</div>
-            </div>
-          </div>
 
           <Button
             className="relative bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white px-6 py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 border-0 overflow-hidden group"
@@ -618,72 +902,181 @@ export function KanbanBoard() {
       <div className="flex-1 overflow-hidden h-full min-h-0">
         <DndContext
           sensors={sensors}
-          collisionDetection={customCollisionDetection}
-          onDragEnd={onDragEnd}
-          onDragStart={onDragStart}
-          onDragCancel={onDragCancel}
+          collisionDetection={(args) => {
+            const { active } = args
+            const activeId = active.id as string
+
+            // Determine if we're dragging a stage or an opportunity
+            if (activeId.includes('_stage')) {
+              return stageCollisionDetection(args)
+            }
+
+            return customCollisionDetection(args)
+          }}
+          onDragEnd={(event) => {
+            const { active } = event
+            const activeId = active.id as string
+
+            // Route to appropriate handler
+            if (activeId.includes('_stage')) {
+              onStageDragEnd(event)
+            } else {
+              onDragEnd(event)
+            }
+          }}
+          onDragStart={(event) => {
+            const { active } = event
+            const activeId = active.id as string
+
+            // Route to appropriate handler
+            if (activeId.includes('_stage')) {
+              onStageDragStart(event)
+            } else {
+              onDragStart(event)
+            }
+          }}
+          onDragCancel={(event) => {
+            const { active } = event
+            const activeId = active.id as string
+
+            // Route to appropriate handler
+            if (activeId.includes('_stage')) {
+              onStageDragCancel()
+            } else {
+              onDragCancel()
+            }
+          }}
           modifiers={[restrictToWindowEdges]}
         >
-          <div ref={boardRef} className="kanban-columns h-full flex items-start gap-6 md:gap-8 overflow-x-auto pb-4 px-6 md:px-8">
+          <div ref={boardRef} className="kanban-columns h-full flex items-start gap-0 overflow-x-auto pb-4 px-6 md:px-8">
             {stages.map((stage, index) => (
-              <KanbanColumn
-                key={stage.id}
-                index={index}
-                stage={stage}
-                opportunities={getOpportunitiesForStage(stage.id)}
-                onEdit={handleEdit}
-                onDelete={handleDelete}
-                onKeyboardMove={handleKeyboardMove}
-                onEditStage={handleEditStage}
-                onDeleteStage={handleDeleteStage}
-                isDragging={isDragging}
+              <div key={`stage-wrapper-${stage.id}`} className="flex items-start">
+                {/* Stage Drop Zone Before Each Column (including first) */}
+                {isStageDragging && (
+                  <StageDropZone beforeIndex={index} />
+                )}
 
-              />
+                <div className={isStageDragging ? 'gap-0' : 'gap-6 md:gap-8'}>
+                  <KanbanColumn
+                    index={index}
+                    stage={stage}
+                    opportunities={getOpportunitiesForStage(stage.id)}
+                    onEdit={handleEdit}
+                    onDelete={handleDelete}
+                    onKeyboardMove={handleKeyboardMove}
+                    onEditStage={handleEditStage}
+                    onDeleteStage={handleDeleteStage}
+                    isDragging={isDragging}
+                    isStageDraggingActive={isStageDragging}
+                  />
+                </div>
+              </div>
             ))}
 
-            {/* Enhanced drag overlay with better visual feedback */}
-            <DragOverlay>
-              {activeItem && (
-                <div className="rotate-2 scale-105 overflow-hidden">
-                  <div className="bg-card/95 backdrop-blur-sm border rounded-lg p-4 shadow-2xl scale-105 border-primary/30 bg-gradient-to-br from-blue-50/90 to-indigo-50/90 ring-4 ring-primary/20">
-                    <div className="flex items-start gap-3 mb-3">
-                      <div className="flex-1 min-w-0">
-                        <h3 className="font-semibold text-sm leading-tight text-foreground line-clamp-2 mb-2">
-                          {activeItem.title}
-                        </h3>
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                          <div className="h-3 w-3 rounded-full bg-muted-foreground text-white flex items-center justify-center text-xs">
-                            <span>•</span>
-                          </div>
-                          <span className="truncate">{activeItem.agency}</span>
+            {/* Stage Drop Zone at the End */}
+            {isStageDragging && (
+              <StageDropZone beforeIndex={stages.length} />
+            )}
+          </div>
+
+          {/* Enhanced drag overlay with better visual feedback */}
+          <DragOverlay>
+            {activeStage && (
+              <div className="rotate-2 scale-105 opacity-90">
+                <div className="bg-white rounded-2xl shadow-2xl border border-slate-200/60 min-w-[24rem] w-96 md:w-[28rem] max-h-96 overflow-hidden">
+                  {/* Column Header */}
+                  <div className="bg-gradient-to-r from-white via-slate-50/80 to-white backdrop-blur-md border-b border-slate-200/60 rounded-t-2xl">
+                    <div className="flex items-center justify-between px-6 py-5">
+                      <div className="flex items-center gap-4">
+                        <div className="relative">
+                          <div
+                            className="w-5 h-5 rounded-full shadow-lg ring-2 ring-white flex-shrink-0"
+                            style={{ backgroundColor: activeStage.color }}
+                          ></div>
+                          <div className="absolute inset-0 rounded-full" style={{ backgroundColor: activeStage.color, opacity: 0.3 }}></div>
+                        </div>
+                        <h3 className="text-xl font-bold text-slate-900 leading-tight tracking-tight">{activeStage.name}</h3>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="bg-gradient-to-r from-slate-100 to-slate-200 px-4 py-2 rounded-xl text-sm font-bold text-slate-700 shadow-sm border border-slate-300/50">
+                          {getOpportunitiesForStage(activeStage.id).length}
                         </div>
                       </div>
                     </div>
-                    <div className="flex items-center justify-between pt-2 border-t text-xs">
-                      <div className="text-xs bg-muted px-2 py-1 rounded">
-                        Dragging...
+                  </div>
+                  {/* Show preview of opportunities */}
+                  <div className="bg-slate-50/60 rounded-b-2xl p-4">
+                    {getOpportunitiesForStage(activeStage.id).length === 0 ? (
+                      <div className="flex items-center justify-center py-8 text-slate-500">
+                        <span>Empty stage</span>
                       </div>
-                      <div className="text-xs text-primary font-semibold">
-                        Stage: {findStageById(activeItem.currentStageId)?.name}
+                    ) : (
+                      <div className="space-y-2 max-h-64 overflow-hidden">
+                        {getOpportunitiesForStage(activeStage.id).slice(0, 3).map((opp, index) => (
+                          <div key={opp.id} className="bg-white border border-slate-200 rounded-lg p-3 shadow-sm">
+                            <div className="flex items-start gap-2">
+                              <div className="flex-1 min-w-0">
+                                <h4 className="font-medium text-sm text-slate-900 line-clamp-1 mb-1">{opp.title}</h4>
+                                <div className="text-xs text-slate-500 line-clamp-1">{opp.agency}</div>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                        {getOpportunitiesForStage(activeStage.id).length > 3 && (
+                          <div className="text-center text-sm text-slate-500 py-2">
+                            ...and {getOpportunitiesForStage(activeStage.id).length - 3} more
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+            {activeItem && (
+              <div className="rotate-2 scale-105 overflow-hidden">
+                <div className="bg-card/95 backdrop-blur-sm border rounded-lg p-4 shadow-2xl scale-105 border-primary/30 bg-gradient-to-br from-blue-50/90 to-indigo-50/90 ring-4 ring-primary/20">
+                  <div className="flex items-start gap-3 mb-3">
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-semibold text-sm leading-tight text-foreground line-clamp-2 mb-2">
+                        {activeItem.title}
+                      </h3>
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <div className="h-3 w-3 rounded-full bg-muted-foreground text-white flex items-center justify-center text-xs">
+                          <span>•</span>
+                        </div>
+                        <span className="truncate">{activeItem.agency}</span>
                       </div>
                     </div>
                   </div>
+                  <div className="flex items-center justify-between pt-2 border-t text-xs">
+                    <div className="text-xs bg-muted px-2 py-1 rounded">
+                      Dragging...
+                    </div>
+                    <div className="text-xs text-primary font-semibold">
+                      Stage: {findStageById(activeItem.currentStageId)?.name}
+                    </div>
+                  </div>
                 </div>
-              )}
-            </DragOverlay>
-          </div>
+              </div>
+            )}
+          </DragOverlay>
         </DndContext>
       </div>
 
-      {/* Enhanced opportunity modal */}
-      {isModalOpen && (
-        <OpportunityModal
-          isOpen={isModalOpen}
-          opportunity={selectedOpportunity}
-          onClose={() => setIsModalOpen(false)}
-          onSuccess={handleModalSuccess}
-        />
-      )}
+      {/* New opportunity modals */}
+      <AddOpportunityModal
+        isOpen={isModalOpen && !selectedOpportunity}
+        onClose={() => setIsModalOpen(false)}
+        onSuccess={handleModalSuccess}
+      />
+
+      <EditOpportunityModal
+        isOpen={isModalOpen && !!selectedOpportunity}
+        opportunity={selectedOpportunity}
+        onClose={() => { setIsModalOpen(false); setSelectedOpportunity(null); }}
+        onSuccess={handleModalSuccess}
+      />
 
       {/* Enhanced stage management modal */}
       <Dialog open={isStageModalOpen} onOpenChange={setIsStageModalOpen}>

@@ -1,32 +1,12 @@
 "use client"
 
-import { useState, memo, useCallback } from "react"
+import { useState, useEffect, memo, useCallback } from "react"
 import { useSortable } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
-import { GripVertical, MoreVertical, Edit, Trash2, AlertTriangle, Building2, Calendar, DollarSign, Eye, EyeOff } from "lucide-react"
-import { format, differenceInDays } from "date-fns"
+import { GripVertical, MoreVertical, Edit, Trash2, Building2, Calendar, DollarSign } from "lucide-react"
+import { format } from "date-fns"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-  DropdownMenuShortcut,
-  DropdownMenuLabel,
-} from "@/components/ui/dropdown-menu"
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog"
 import { useToast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
 
@@ -55,156 +35,117 @@ interface OpportunityCardProps {
   isDragging: boolean
 }
 
-// Enhanced Action Menu Component with Confirmation Dialogs
-function EnhancedActionMenu({
+// Simple action menu with regular buttons
+function CardActionMenu({
   opportunityId,
-  opportunity,
+  opportunityTitle,
   onEdit,
   onDelete,
   isDragging,
 }: {
   opportunityId: string
-  opportunity: Opportunity
+  opportunityTitle: string
   onEdit?: (id: string) => void
   onDelete?: (id: string) => void
   isDragging: boolean
 }) {
-  const { toast } = useToast()
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+  const [isOpen, setIsOpen] = useState(false)
 
-  const handleDelete = useCallback(() => {
-    onDelete?.(opportunityId)
-    setIsDeleteDialogOpen(false)
-    toast({
-      title: "Opportunity deleted",
-      description: `${opportunity.title} has been removed from your pipeline.`,
-    })
-  }, [onDelete, opportunityId, opportunity.title, toast])
+  const handleToggle = useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (!isDragging) {
+      setIsOpen(!isOpen)
+    }
+  }, [isDragging, isOpen])
 
-  const handleViewDetails = useCallback(() => {
-    // Placeholder for view details functionality
-    toast({
-      title: "View Details",
-      description: `Opening details for ${opportunity.title}`,
-    })
-  }, [opportunity.title, toast])
+  const handleEdit = useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    console.log("Edit clicked for opportunity:", opportunityId)
+    onEdit?.(opportunityId)
+    setIsOpen(false)
+  }, [opportunityId, onEdit])
 
-  const handleExport = useCallback(() => {
-    // Placeholder for export functionality
-    toast({
-      title: "Export Opportunity",
-      description: `${opportunity.title} has been exported.`,
-    })
-  }, [opportunity.title, toast])
+  const handleDelete = useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    console.log("Delete clicked for opportunity:", opportunityId)
+    if (confirm(`Are you sure you want to delete "${opportunityTitle}"?`)) {
+      onDelete?.(opportunityId)
+    }
+    setIsOpen(false)
+  }, [opportunityId, opportunityTitle, onDelete])
 
-  const handleDuplicate = useCallback(() => {
-    // Placeholder for duplicate functionality
-    toast({
-      title: "Duplicate Opportunity",
-      description: `Duplicating ${opportunity.title}`,
-    })
-  }, [opportunity.title, toast])
+  // Close menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = () => setIsOpen(false)
+    if (isOpen) {
+      document.addEventListener('click', handleClickOutside)
+      return () => document.removeEventListener('click', handleClickOutside)
+    }
+  }, [isOpen])
+
+  if (isDragging) {
+    return (
+      <Button
+        variant="ghost"
+        size="sm"
+        className="h-8 w-8 p-0 opacity-50 cursor-not-allowed"
+        disabled
+        title="Menu disabled while dragging"
+      >
+        <MoreVertical className="h-4 w-4 text-slate-400" />
+      </Button>
+    )
+  }
 
   return (
-    <>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button
-            variant="ghost"
-            className={cn(
-              "h-8 w-8 p-0 hover:bg-slate-200 transition-colors duration-200",
-              isDragging && "opacity-50 cursor-not-allowed"
-            )}
+    <div className="relative">
+      <Button
+        variant="ghost"
+        size="sm"
+        className={cn(
+          "h-8 w-8 p-0 flex items-center justify-center",
+          "bg-white hover:bg-slate-50",
+          "border border-slate-300 rounded",
+          "transition-colors duration-200",
+          "focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1",
+        )}
+        onClick={handleToggle}
+        title="More actions"
+        aria-label={`Actions for ${opportunityTitle}`}
+        aria-expanded={isOpen}
+      >
+        <MoreVertical className="h-4 w-4 text-slate-600" />
+      </Button>
 
-            onPointerDown={(e) => {
-              // Prevent drag start when clicking the menu button
-              e.stopPropagation()
-            }}
-            aria-label="Opportunity actions"
-          >
-            <MoreVertical className="h-4 w-4 text-slate-600" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-56">
-          <DropdownMenuLabel className="text-xs text-slate-500 uppercase tracking-wide">
+      {isOpen && (
+        <div className={cn(
+          "absolute right-0 mt-1 z-50",
+          "bg-white border border-slate-200 rounded-md shadow-lg",
+          "py-1 w-32 min-w-[120px]"
+        )}>
+          <div className="px-3 py-1 text-xs text-slate-500 font-medium border-b border-slate-100">
             Actions
-          </DropdownMenuLabel>
-
-          <DropdownMenuItem
-            onClick={() => onEdit?.(opportunityId)}
-            className="cursor-pointer focus:bg-blue-50 focus:text-blue-700"
+          </div>
+          <button
+            onClick={handleEdit}
+            className="flex items-center gap-2 w-full px-3 py-2 text-sm text-left hover:bg-slate-50 focus:bg-slate-50 focus:outline-none"
           >
-            <Edit className="mr-2 h-4 w-4" />
-            Edit Opportunity
-            <DropdownMenuShortcut>⌘E</DropdownMenuShortcut>
-          </DropdownMenuItem>
-
-          <DropdownMenuItem
-            onClick={handleViewDetails}
-            className="cursor-pointer focus:bg-slate-50"
+            <Edit className="h-4 w-4 text-slate-500" />
+            <span>Edit</span>
+          </button>
+          <button
+            onClick={handleDelete}
+            className="flex items-center gap-2 w-full px-3 py-2 text-sm text-left text-red-600 hover:bg-red-50 focus:bg-red-50 focus:outline-none"
           >
-            <Eye className="mr-2 h-4 w-4" />
-            View Details
-            <DropdownMenuShortcut>⌘V</DropdownMenuShortcut>
-          </DropdownMenuItem>
-
-          <DropdownMenuItem
-            onClick={handleDuplicate}
-            className="cursor-pointer focus:bg-slate-50"
-          >
-            <EyeOff className="mr-2 h-4 w-4" />
-            Duplicate
-            <DropdownMenuShortcut>⌘D</DropdownMenuShortcut>
-          </DropdownMenuItem>
-
-          <DropdownMenuItem
-            onClick={handleExport}
-            className="cursor-pointer focus:bg-slate-50"
-          >
-            <Eye className="mr-2 h-4 w-4" />
-            Export
-            <DropdownMenuShortcut>⌘X</DropdownMenuShortcut>
-          </DropdownMenuItem>
-
-          <DropdownMenuSeparator />
-
-          <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-            <AlertDialogTrigger asChild>
-              <DropdownMenuItem
-                onSelect={(e) => e.preventDefault()}
-                className="cursor-pointer text-red-600 focus:bg-red-50 focus:text-red-700"
-              >
-                <Trash2 className="mr-2 h-4 w-4" />
-                Delete Opportunity
-                <DropdownMenuShortcut>⌫</DropdownMenuShortcut>
-              </DropdownMenuItem>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle className="flex items-center gap-2">
-                  <AlertTriangle className="h-5 w-5 text-red-500" />
-                  Delete Opportunity
-                </AlertDialogTitle>
-                <AlertDialogDescription>
-                  Are you sure you want to delete <strong>{opportunity.title}</strong>?
-                  <br />
-                  This action cannot be undone, and all associated data will be permanently removed.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction
-                  onClick={handleDelete}
-                  className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
-                >
-                  Delete Opportunity
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-        </DropdownMenuContent>
-      </DropdownMenu>
-    </>
+            <Trash2 className="h-4 w-4" />
+            <span>Delete</span>
+          </button>
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -374,7 +315,7 @@ function OpportunityCard({
       className={cn(
         "group bg-white border rounded-lg overflow-hidden shadow-sm transition-all duration-200",
         "hover:shadow-md hover:border-slate-400",
-        "select-none",
+        "select-none relative",
         isCardDragging && "shadow-2xl scale-105 rotate-2 z-50 border-primary/50 bg-gradient-to-br from-blue-50/90 to-indigo-50/90",
         getPriorityColor(opportunity.priority),
         // Priority-based visual hierarchy
@@ -387,7 +328,7 @@ function OpportunityCard({
       aria-label={`Opportunity: ${opportunity.title} - Priority ${opportunity.priority} - ${opportunity.probability}% probability`}
       aria-describedby={`opp-${opportunity.id}-description`}
     >
-      {/* Header Section */}
+      {/* Header Section with improved layout */}
       <div className="p-4 pb-3">
         <div className="flex items-start gap-3 mb-3">
           {/* Enhanced drag handle with better visual feedback */}
@@ -413,7 +354,6 @@ function OpportunityCard({
                 }
               }
             }}
-
           >
             <GripVertical className="h-3 w-3 text-slate-400" />
           </div>
@@ -431,7 +371,8 @@ function OpportunityCard({
             </div>
           </div>
 
-          <div className="flex items-center gap-1 flex-shrink-0">
+          {/* Improved header right section with better spacing */}
+          <div className="flex items-start gap-2 flex-shrink-0">
             <Badge
               variant={getPriorityVariant(opportunity.priority) as any}
               className={cn(
@@ -441,27 +382,33 @@ function OpportunityCard({
             >
               {opportunity.priority}
             </Badge>
-            <EnhancedActionMenu
-              opportunityId={opportunity.id}
-              opportunity={opportunity}
-              onEdit={onEdit}
-              onDelete={onDelete}
-              isDragging={isDragging || isCardDragging}
-            />
+            
+            {/* Menu button with improved positioning */}
+            <div className="mt-0">
+              <CardActionMenu
+                opportunityId={opportunity.id}
+                opportunityTitle={opportunity.title}
+                onEdit={onEdit}
+                onDelete={onDelete}
+                isDragging={isDragging || isCardDragging}
+              />
+            </div>
           </div>
         </div>
 
         {/* Enhanced priority indicator */}
-        <div className={cn(
-          "text-xs text-center py-1 px-2 rounded text-slate-700 font-medium mb-3",
-          priorityRank >= 4 && "bg-red-100 text-red-800",
-          priorityRank === 3 && "bg-orange-100 text-orange-800",
-          priorityRank === 2 && "bg-yellow-100 text-yellow-800"
-        )} style={{ display: priorityRank > 1 ? 'block' : 'none' }}>
-          {priorityRank === 4 && "⚠️ Critical Priority"}
-          {priorityRank === 3 && "🔥 High Priority"}
-          {priorityRank === 2 && "⚡ Medium Priority"}
-        </div>
+        {priorityRank > 1 && (
+          <div className={cn(
+            "text-xs text-center py-1 px-2 rounded text-slate-700 font-medium mb-3",
+            priorityRank >= 4 && "bg-red-100 text-red-800",
+            priorityRank === 3 && "bg-orange-100 text-orange-800",
+            priorityRank === 2 && "bg-yellow-100 text-yellow-800"
+          )}>
+            {priorityRank === 4 && "⚠️ Critical Priority"}
+            {priorityRank === 3 && "🔥 High Priority"}
+            {priorityRank === 2 && "⚡ Medium Priority"}
+          </div>
+        )}
 
         {/* Due Date with enhanced styling */}
         {dueDateInfo && (

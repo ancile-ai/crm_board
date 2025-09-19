@@ -13,16 +13,8 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     const opportunity = await db.opportunity.findUnique({
       where: { id: params.id },
       include: {
-        company: true,
         assignedTo: true,
-        contacts: true,
-        activities: {
-          orderBy: { createdAt: "desc" },
-          include: {
-            user: true,
-          },
-        },
-        documents: true,
+        currentStage: true,
       },
     })
 
@@ -65,24 +57,17 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       where: { id: params.id },
       data: {
         title,
-        description,
-        stage,
-        priority,
-        value: value ? Number.parseFloat(value) : null,
-        closeDate: closeDate ? new Date(closeDate) : null,
-        companyId,
-        assignedToId,
-        samGovId,
-        naicsCode,
-        setAsideType,
-        contractType,
-        placeOfPerformance,
+        // Consistent field mapping: use description consistently with keyRequirements
+        keyRequirements: description,
+        // Update related fields with consistent handling
+        solicitationNumber: samGovId || null,
+        estimatedValueMin: null,
+        estimatedValueMax: value ? Number.parseInt(value) : null,
+        dueDate: closeDate ? new Date(closeDate) : null,
+        priority: priority || "MEDIUM",
+        samGovLink: samGovId || null,
+        naicsCodes: naicsCode ? [naicsCode] : [],
         updatedAt: new Date(),
-      },
-      include: {
-        company: true,
-        assignedTo: true,
-        contacts: true,
       },
     })
 

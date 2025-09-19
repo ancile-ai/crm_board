@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
           select: {
             id: true,
             title: true,
-            stage: true,
+            currentStage: true,
           },
         },
       },

@@ -99,8 +99,11 @@ model Opportunity {
   estimatedValueMin Int?
   estimatedValueMax Int?
   dueDate           DateTime?
+  samGovId          String?
   currentStageId    String
   currentStage      Stage            @relation(fields: [currentStageId], references: [id])
+  companyId         String?
+  company           Company?         @relation(fields: [companyId], references: [id])
   naicsCodes        String[]
   setAsideType      SetAsideType?
   opportunityType   OpportunityType
@@ -116,6 +119,7 @@ model Opportunity {
   notes             String?          @db.Text
   attachments       Attachment[]
   comments          Comment[]
+  contacts          Contact[]        @relation("ContactOpportunities")
   stageHistory      StageHistory[]
   keyDates          KeyDate[]
   createdAt         DateTime         @default(now())
@@ -193,4 +197,50 @@ enum Priority {
   MEDIUM
   HIGH
   URGENT
+}
+
+model Company {
+  id          String   @id @default(cuid())
+  name        String
+  industry    String?
+  website     String?
+  phone       String?
+  email       String?
+  address     String?
+  city        String?
+  state       String?
+  zipCode     String?
+  country     String   @default("USA")
+  cageCode    String?
+  duns        String?
+  samRegistered Boolean @default(false)
+  smallBusiness Boolean @default(false)
+  womanOwned  Boolean  @default(false)
+  veteranOwned Boolean @default(false)
+  hubzone     Boolean  @default(false)
+  eightA      Boolean  @default(false)
+
+  contacts     Contact[]
+  opportunities Opportunity[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Contact {
+  id        String  @id @default(cuid())
+  firstName String
+  lastName  String
+  email     String?
+  phone     String?
+  mobile    String?
+  title     String?
+  companyId String
+  isPrimary Boolean @default(false)
+
+  company       Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  opportunities Opportunity[] @relation("ContactOpportunities")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }

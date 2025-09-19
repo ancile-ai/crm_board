@@ -22,62 +22,72 @@ export async function POST(request: NextRequest) {
       try {
         // Check if opportunity already exists
         const existing = await db.opportunity.findFirst({
-          where: { samGovId: opp.noticeId },
+          where: { solicitationNumber: opp.noticeId },
         })
 
         if (existing) {
           continue // Skip if already imported
         }
 
+        // Get user
+        const user = await db.user.findUnique({
+          where: { email: session.user.email }
+        })
+
+        if (!user) {
+          throw new Error("User not found")
+        }
+
         // Parse contract value
-        let value = null
+        let estimatedValueMax = null
         if (opp.award?.amount) {
           const amountStr = opp.award.amount.replace(/[$,]/g, "")
           const parsedAmount = Number.parseFloat(amountStr)
           if (!isNaN(parsedAmount)) {
-            value = parsedAmount
+            estimatedValueMax = parsedAmount
           }
         }
 
         // Map set-aside type
-        const setAsideMapping: { [key: string]: string } = {
+        const setAsideMapping = {
           SBA: "SMALL_BUSINESS",
-          WOSB: "WOMAN_OWNED",
-          VOSB: "VETERAN_OWNED",
-          SDVOSB: "SERVICE_DISABLED_VETERAN",
+          WOSB: "WOSB",
+          VOSB: "VOSB",
+          SDVOSB: "SDVOSB",
           HUBZONE: "HUBZONE",
-          "8A": "8A",
-        }
+          "8A": "EIGHT_A",
+        } as const
 
-        const setAsideType = setAsideMapping[opp.typeOfSetAside] || "NO_SET_ASIDE"
+        const setAsideType = setAsideMapping[opp.typeOfSetAside as keyof typeof setAsideMapping] || null
 
         // Create opportunity
         const opportunity = await db.opportunity.create({
           data: {
             title: opp.title,
-            description: opp.description || `${opp.department} - ${opp.office}`,
-            stage: "LEAD",
-            priority: "MEDIUM",
-            value,
-            closeDate: opp.responseDeadLine ? new Date(opp.responseDeadLine) : null,
-            samGovId: opp.noticeId,
-            naicsCode: opp.naicsCode,
+            keyRequirements: opp.description || `${opp.department} - ${opp.office}`,
+            agency: opp.department || "Unknown Agency",
+            contractVehicle: opp.office || "SAM.gov",
+            solicitationNumber: opp.noticeId,
+            estimatedValueMax,
+            currentStageId: "default-lead-stage",
+            dueDate: opp.responseDeadLine ? new Date(opp.responseDeadLine) : null,
+            naicsCodes: opp.naicsCode ? [opp.naicsCode] : [],
             setAsideType,
-            contractType: "NO_CONTRACT_TYPE",
-            placeOfPerformance: `${opp.department}, ${opp.office}`,
-            createdById: session.user.id,
+            opportunityType: "RFP",
+            priority: "MEDIUM" as const,
+            technicalFocus: [],
+            teamingPartners: [],
           },
         })
 
         importedOpportunities.push(opportunity)
 
-        // Create activity log
-        await db.activity.create({
+        // Create comment log
+        await db.comment.create({
           data: {
-            type: "NOTE",
-            description: `Imported from SAM.gov - Solicitation: ${opp.solicitationNumber}`,
+            content: `Imported from SAM.gov - Solicitation: ${opp.solicitationNumber}`,
             opportunityId: opportunity.id,
-            userId: session.user.id,
+            userId: user.id,
           },
         })
       } catch (error) {
