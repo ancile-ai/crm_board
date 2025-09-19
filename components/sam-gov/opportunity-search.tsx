@@ -19,6 +19,7 @@ export function OpportunitySearch({ onSearch, loading }: OpportunitySearchProps)
     naicsCode: "",
     setAside: "All Set-Asides",
     limit: "50",
+    baseUrl: "",
   })
 
   const handleSearch = () => {
@@ -89,6 +90,18 @@ export function OpportunitySearch({ onSearch, loading }: OpportunitySearchProps)
                 <SelectItem value="100">100 results</SelectItem>
               </SelectContent>
             </Select>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-1 gap-4">
+          <div>
+            <Label htmlFor="baseUrl">SAM.gov API Base URL (Optional)</Label>
+            <Input
+              id="baseUrl"
+              value={searchParams.baseUrl}
+              onChange={(e) => handleChange("baseUrl", e.target.value)}
+              placeholder="https://api.sam.gov or custom testing endpoint"
+            />
           </div>
         </div>
 

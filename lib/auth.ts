@@ -1,5 +1,6 @@
 import type { NextAuthOptions } from "next-auth";
 import AzureADProvider from "next-auth/providers/azure-ad";
+import { db } from "@/lib/db";
 
 const ALLOWED_DOMAIN = "ancile.io";
 
@@ -25,6 +26,28 @@ export const authOptions: NextAuthOptions = {
         console.log(`Access denied for email: ${user.email}`);
         return false;
       }
+
+      // Create user record if it doesn't exist
+      try {
+        const existingUser = await db.user.findUnique({
+          where: { email: user.email! }
+        });
+
+        if (!existingUser) {
+          await db.user.create({
+            data: {
+              email: user.email!,
+              name: user.name || null,
+              image: user.image || null,
+            }
+          });
+          console.log(`Created new user record: ${user.email}`);
+        }
+      } catch (error) {
+        console.error('Error creating user during sign in:', error);
+        return false; // Deny sign in if we can't create the user
+      }
+
       return true;
     },
     async redirect({ url, baseUrl }) {
@@ -40,10 +63,22 @@ export const authOptions: NextAuthOptions = {
       if (user && (!user.email || !user.email.endsWith(`@${ALLOWED_DOMAIN}`))) {
         throw new Error("Unauthorized: Invalid email domain");
       }
-      if (user) {
-        token.id = user.id;
-        token.role = (user as { role?: string }).role;
+
+      // If this is the initial JWT creation, fetch the user from database
+      if (user?.email && !token.id) {
+        try {
+          const dbUser = await db.user.findUnique({
+            where: { email: user.email }
+          });
+          if (dbUser) {
+            token.id = dbUser.id;
+            token.role = dbUser.role;
+          }
+        } catch (error) {
+          console.error('Error fetching user in JWT callback:', error);
+        }
       }
+
       return token;
     },
     async session({ session, token }) {

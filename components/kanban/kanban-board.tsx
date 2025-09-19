@@ -15,8 +15,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { toast } from "@/hooks/use-toast"
 
-// Development mode flag - set to true to bypass API calls for testing
-const DEV_MODE = process.env.NODE_ENV === 'development'
+// Kanban Board Component
 
 // Stage Drop Zone Component for reordering stages
 function StageDropZone({ beforeIndex }: { beforeIndex: number }) {
@@ -50,96 +49,9 @@ function StageDropZone({ beforeIndex }: { beforeIndex: number }) {
   )
 }
 
-// Mock stages for development mode
-const mockStages = [
-  { id: "stage-lead-gen", name: "Lead Generation", color: "#3b82f6", order: 1 },
-  { id: "stage-qualification", name: "Qualification", color: "#f59e0b", order: 2 },
-  { id: "stage-proposal", name: "Proposal Development", color: "#8b5cf6", order: 3 },
-  { id: "stage-submitted", name: "Submitted/Under Review", color: "#06b6d4", order: 4 },
-  { id: "stage-closed", name: "Won/Lost/Closed", color: "#10b981", order: 5 },
-]
-
-  const mockOpportunities = [
-    {
-      id: "opp-1",
-      title: "AI-Powered Data Analytics Platform for Defense Intelligence",
-      description: "Development and implementation of an advanced data analytics platform using AI/ML technologies for defense intelligence applications.",
-      agency: "Department of Defense",
-      contractVehicle: "SAM.gov",
-      solicitationNumber: "W52P1J-24-R-0001",
-      estimatedValueMin: 500000,
-      estimatedValueMax: 2000000,
-      dueDate: new Date("2024-12-15"),
-      currentStageId: "stage-lead-gen",
-      priority: "HIGH" as const,
-      probability: 75,
-      opportunityType: "RFP" as const,
-      technicalFocus: ["AI/ML", "Data Analytics", "Cloud Computing"],
-      value: "2000000",
-      closeDate: "2024-12-15",
-      companyId: "mock-company-1",
-      assignedToId: "mock-user-1",
-      samGovId: "W52P1J-24-R-0001",
-      naicsCode: "541512",
-      setAsideType: "SMALL_BUSINESS" as const,
-      contractType: "FIXED_PRICE" as const,
-      placeOfPerformance: "Washington, DC",
-    },
-    {
-      id: "opp-2",
-      title: "Cybersecurity Assessment and Monitoring Services",
-      description: "Comprehensive cybersecurity assessment and continuous monitoring services for government systems.",
-      agency: "General Services Administration",
-      contractVehicle: "GSA Schedule",
-      solicitationNumber: "GS-35F-0001AA",
-      estimatedValueMin: 100000,
-      estimatedValueMax: 500000,
-      dueDate: new Date("2024-11-30"),
-      currentStageId: "stage-qualification",
-      priority: "MEDIUM" as const,
-      probability: 60,
-      opportunityType: "RFQ" as const,
-      technicalFocus: ["Cybersecurity", "Risk Assessment", "Compliance"],
-      value: "500000",
-      closeDate: "2024-11-30",
-      companyId: "mock-company-2",
-      assignedToId: "mock-user-2",
-      samGovId: "GS-35F-0001AA",
-      naicsCode: "541512",
-      setAsideType: "WOMAN_OWNED" as const,
-      contractType: "TIME_AND_MATERIALS" as const,
-      placeOfPerformance: "New York, NY",
-    },
-    {
-      id: "opp-3",
-      title: "Cloud Migration and Modernization Initiative",
-      description: "Large-scale cloud migration and modernization project for NASA's computing infrastructure.",
-      agency: "NASA",
-      contractVehicle: "SAM.gov",
-      solicitationNumber: "NNH24ZDA001N",
-      estimatedValueMin: 1000000,
-      estimatedValueMax: 5000000,
-      dueDate: new Date("2025-01-20"),
-      currentStageId: "stage-proposal",
-      priority: "HIGH" as const,
-      probability: 40,
-      opportunityType: "BAA" as const,
-      technicalFocus: ["Cloud Computing", "DevOps", "System Integration"],
-      value: "5000000",
-      closeDate: "2025-01-20",
-      companyId: "mock-company-3",
-      assignedToId: "mock-user-3",
-      samGovId: "NNH24ZDA001N",
-      naicsCode: "541513",
-      setAsideType: "HUBZONE" as const,
-      contractType: "COST_PLUS" as const,
-      placeOfPerformance: "Houston, TX",
-    }
-  ]
-
 export function KanbanBoard() {
-  const [stages, setStages] = useState(mockStages)
-  const [opportunities, setOpportunities] = useState(mockOpportunities)
+  const [stages, setStages] = useState<any[]>([])
+  const [opportunities, setOpportunities] = useState<any[]>([])
   const [selectedOpportunity, setSelectedOpportunity] = useState<any | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [isDragging, setIsDragging] = useState(false)
@@ -154,9 +66,6 @@ export function KanbanBoard() {
   const [activeStage, setActiveStage] = useState<any>(null)
   const [isStageDragging, setIsStageDragging] = useState(false)
   const [loading, setLoading] = useState(false)
-
-  // Development mode flag - set to true to bypass API calls for testing
-  const DEV_MODE = process.env.NODE_ENV === 'development'
 
   const boardRef = useRef<HTMLDivElement | null>(null)
   const scrollRafRef = useRef<number | null>(null)
@@ -305,52 +214,43 @@ export function KanbanBoard() {
       })
     })
 
-    // Persist to backend with enhanced error handling OR simulate success in dev mode
+    // Persist to backend
     try {
       console.log(`[KANBAN] Moving ${opportunityId} to stage ${destStageId}`)
 
-      if (DEV_MODE) {
-        // In development mode, simulate successful API call
-        await new Promise(resolve => setTimeout(resolve, 200)) // Simulate network delay
-        console.log("[KANBAN] Dev mode: Simulating successful API call")
-      } else {
-        // Production mode: Make real API call
-        const response = await fetch(`/api/opportunities/${opportunityId}/move`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            stage: destStageId,
-            index: destIndex,
-            oldStageId: sourceStageId !== destStageId ? sourceStageId : undefined
-          }),
-        })
+      const response = await fetch(`/api/opportunities/${opportunityId}/move`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          stage: destStageId,
+          index: destIndex,
+          oldStageId: sourceStageId !== destStageId ? sourceStageId : undefined
+        }),
+      })
 
-        console.log(`[KANBAN] API response status: ${response.status}`)
+      console.log(`[KANBAN] API response status: ${response.status}`)
 
-        if (!response.ok) {
-          let errorMessage = `API call failed (${response.status})`
-          try {
-            const error = await response.json()
-            errorMessage = error.error || errorMessage
-            console.error(`[KANBAN] API error:`, error)
-          } catch (jsonError) {
-            console.error(`[KANBAN] Failed to parse error response:`, jsonError)
-            const text = await response.text()
-            console.error(`[KANBAN] Response text:`, text)
-          }
-          throw new Error(errorMessage)
+      if (!response.ok) {
+        let errorMessage = `API call failed (${response.status})`
+        try {
+          const error = await response.json()
+          errorMessage = error.error || errorMessage
+          console.error(`[KANBAN] API error:`, error)
+        } catch (jsonError) {
+          console.error(`[KANBAN] Failed to parse error response:`, jsonError)
+          const text = await response.text()
+          console.error(`[KANBAN] Response text:`, text)
         }
-
-        const result = await response.json()
-        console.log(`[KANBAN] API success:`, result)
+        throw new Error(errorMessage)
       }
+
+      const result = await response.json()
+      console.log(`[KANBAN] API success:`, result)
 
       // Success toast for better UX feedback
       toast({
         title: "Opportunity moved",
-        description: `${opportunity.title} moved to ${findStageById(destStageId)?.name}${
-          DEV_MODE ? ' (Dev Mode)' : ''
-        }`,
+        description: `${opportunity.title} moved to ${findStageById(destStageId)?.name}`,
       })
 
     } catch (error) {
@@ -533,15 +433,124 @@ export function KanbanBoard() {
     }
   }, [handlePointerMove])
 
+  // Enhanced auto-refresh mechanism to sync with external changes
+  useEffect(() => {
+    let pollingInterval: NodeJS.Timeout
+    let lastUpdateCheck = Date.now()
+    let consecutiveFailures = 0
+    const maxConsecutiveFailures = 3
+
+    const pollForUpdates = async () => {
+      // Only poll if not currently loading and not in the middle of drag operations
+      if (!loading && !isDragging && !isStageDragging) {
+        try {
+          const opportunitiesResponse = await fetch('/api/opportunities', {
+            headers: {
+              'Cache-Control': 'no-cache',
+              'Pragma': 'no-cache'
+            }
+          })
+
+          if (opportunitiesResponse.ok) {
+            const latestOpportunities = await opportunitiesResponse.json()
+            const currentTime = Date.now()
+
+            // Check for actual changes by comparing key fields
+            const hasChanges = latestOpportunities.length !== opportunities.length ||
+              latestOpportunities.some((latestOpp: any) => {
+                const currentOpp = opportunities.find(opp => opp.id === latestOpp.id)
+                if (!currentOpp) return true // New opportunity
+
+                // Check if any important fields have changed
+                const changedFields = [
+                  'title', 'agency', 'priority', 'probability', 'currentStageId',
+                  'estimatedValueMax', 'dueDate', 'updatedAt'
+                ]
+
+                return changedFields.some(field => {
+                  if (field === 'dueDate') {
+                    const latestDate = latestOpp.dueDate ? new Date(latestOpp.dueDate).getTime() : null
+                    const currentDate = currentOpp.dueDate ? currentOpp.dueDate.getTime() : null
+                    return latestDate !== currentDate
+                  }
+                  return latestOpp[field] !== currentOpp[field]
+                })
+              })
+
+            if (hasChanges) {
+              console.log('[KANBAN] Detected external changes, updating opportunities')
+              setOpportunities(latestOpportunities.map((opp: any) => ({
+                id: opp.id,
+                title: opp.title,
+                description: opp.description || "",
+                agency: opp.agency || "",
+                contractVehicle: opp.contractVehicle || "",
+                solicitationNumber: opp.solicitationNumber || "",
+                estimatedValueMin: opp.estimatedValueMin || 0,
+                estimatedValueMax: opp.estimatedValueMax || 0,
+                dueDate: opp.dueDate ? new Date(opp.dueDate) : undefined,
+                currentStageId: opp.currentStageId,
+                stage: "LEAD",
+                priority: opp.priority || "MEDIUM",
+                probability: opp.probability || 0,
+                opportunityType: opp.opportunityType || "RFP",
+                technicalFocus: opp.technicalFocus || [],
+                value: opp.estimatedValueMax?.toString() || "0",
+                closeDate: opp.dueDate || "",
+                companyId: opp.companyId || "",
+                assignedToId: opp.assignedToId || "",
+                samGovId: opp.samGovId || "",
+                naicsCode: opp.naicsCodes?.[0] || "",
+                setAsideType: opp.setAsideType,
+                contractType: opp.contractType,
+                placeOfPerformance: opp.placeOfPerformance || "",
+                opportunityUrl: opp.opportunityUrl || "",
+              })))
+
+              // Reset failure count on successful sync
+              consecutiveFailures = 0
+              lastUpdateCheck = currentTime
+
+              // Only show toast if it's been more than a minute since last sync to avoid spam
+              if (currentTime - lastUpdateCheck > 60000) {
+                console.log('[KANBAN] Data synced automatically')
+              }
+            }
+
+            // Reset consecutive failures on success
+            consecutiveFailures = 0
+          } else {
+            consecutiveFailures++
+            console.warn(`[KANBAN] Polling failed: ${opportunitiesResponse.status}`)
+          }
+        } catch (error) {
+          consecutiveFailures++
+          console.warn('[KANBAN] Polling error:', error)
+        }
+      }
+
+      // Adaptive polling: increase interval if there are consecutive failures
+      const baseInterval = 15000 // 15 seconds
+      const currentInterval = baseInterval * Math.pow(2, Math.min(consecutiveFailures, 3))
+
+      pollingInterval = setTimeout(pollForUpdates, currentInterval)
+    }
+
+    // Start polling
+    pollingInterval = setTimeout(pollForUpdates, 15000) // Initial delay of 15 seconds
+
+    return () => {
+      if (pollingInterval) {
+        clearTimeout(pollingInterval)
+      }
+    }
+  }, [opportunities.length, loading, isDragging, isStageDragging])
+
+
+
   // Load data on component mount
   useEffect(() => {
     const loadData = async () => {
-      if (DEV_MODE) {
-        // In development mode, use mock data
-        console.log("[KANBAN] Dev mode: Using mock data")
-        return
-      }
-
       setLoading(true)
       try {
         // Load stages from API
@@ -574,9 +583,9 @@ export function KanbanBoard() {
             dueDate: opp.dueDate ? new Date(opp.dueDate) : undefined,
             currentStageId: opp.currentStageId,
             stage: "LEAD",
-            priority: (opp.priority || "MEDIUM"),
+            priority: opp.priority || "MEDIUM",
             probability: opp.probability || 0,
-            opportunityType: (opp.opportunityType || "RFP") as const,
+            opportunityType: opp.opportunityType || "RFP",
             technicalFocus: opp.technicalFocus || [],
             value: opp.estimatedValueMax?.toString() || "0",
             closeDate: opp.dueDate || "",
@@ -587,13 +596,14 @@ export function KanbanBoard() {
             setAsideType: opp.setAsideType,
             contractType: opp.contractType,
             placeOfPerformance: opp.placeOfPerformance || "",
+            opportunityUrl: opp.opportunityUrl || "", // Add missing field
           })))
         }
       } catch (error) {
         console.error("[KANBAN] Error loading data:", error)
         toast({
           title: "Error loading data",
-          description: "Failed to load pipeline data. Using demo data.",
+          description: "Failed to load pipeline data. Please refresh the page.",
           variant: "destructive",
         })
       } finally {
@@ -637,17 +647,54 @@ export function KanbanBoard() {
   }, [opportunities, toast])
 
   const handleModalSuccess = useCallback((updated?: any) => {
+    console.log("[KANBAN BOARD] handleModalSuccess called with:", updated)
     setIsModalOpen(false)
     setSelectedOpportunity(null)
     if (updated) {
+      console.log("[KANBAN BOARD] Updating opportunity in local state")
+      // Transform the updated data from API response to match frontend format
+      const transformedOpportunity = {
+        id: updated.id,
+        title: updated.title,
+        description: updated.keyRequirements || "", // Convert from keyRequirements back to description
+        agency: updated.agency || "",
+        contractVehicle: updated.contractVehicle || "",
+        solicitationNumber: updated.solicitationNumber || "",
+        estimatedValueMin: updated.estimatedValueMin || 0,
+        estimatedValueMax: updated.estimatedValueMax || 0,
+        dueDate: updated.dueDate ? new Date(updated.dueDate) : undefined,
+        currentStageId: updated.currentStageId,
+        stage: "LEAD",
+        priority: updated.priority || "MEDIUM",
+        probability: updated.probability || 0,
+        opportunityType: updated.opportunityType || "RFP",
+        technicalFocus: updated.technicalFocus || [],
+        value: updated.estimatedValueMax?.toString() || "0",
+        closeDate: updated.dueDate || "",
+        companyId: updated.companyId || "",
+        assignedToId: updated.assignedToId || "",
+        samGovId: updated.samGovId || "",
+        naicsCode: updated.naicsCodes?.[0] || "",
+        setAsideType: updated.setAsideType,
+        contractType: updated.contractType,
+        placeOfPerformance: updated.placeOfPerformance || "",
+        opportunityUrl: updated.opportunityUrl || "" // Ensure this field is included
+      }
+
+      console.log("[KANBAN BOARD] Transformed opportunity:", transformedOpportunity)
+
       setOpportunities((prev) => {
         const exists = prev.some((o) => o.id === updated.id)
         if (exists) {
-          return prev.map((o) => (o.id === updated.id ? updated : o))
+          console.log("[KANBAN BOARD] Updating existing opportunity")
+          return prev.map((o) => (o.id === updated.id ? transformedOpportunity : o))
         } else {
-          return [...prev, updated]
+          console.log("[KANBAN BOARD] Adding new opportunity")
+          return [...prev, transformedOpportunity]
         }
       })
+    } else {
+      console.log("[KANBAN BOARD] No updated data received")
     }
   }, [])
 
@@ -757,30 +804,24 @@ export function KanbanBoard() {
 
     // Persist to backend
     try {
-      if (!DEV_MODE) {
-        // Send the complete new order to the API
-        const stageUpdates = updatedStages.map((stage, index) => ({
-          id: stage.id,
-          order: index + 1
-        }))
+      // Send the complete new order to the API
+      const stageUpdates = updatedStages.map((stage, index) => ({
+        id: stage.id,
+        order: index + 1
+      }))
 
-        const response = await fetch(`/api/stages/reorder`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ stages: stageUpdates }),
-        })
+      const response = await fetch(`/api/stages/reorder`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ stages: stageUpdates }),
+      })
 
-        if (!response.ok) {
-          throw new Error(`API call failed: ${response.status}`)
-        }
-
-        const result = await response.json()
-        console.log('[STAGES] API success:', result)
-      } else {
-        // Simulate API delay in dev mode
-        await new Promise(resolve => setTimeout(resolve, 200))
-        console.log('[STAGES] Dev mode: Stage reordering simulated')
+      if (!response.ok) {
+        throw new Error(`API call failed: ${response.status}`)
       }
+
+      const result = await response.json()
+      console.log('[STAGES] API success:', result)
 
       toast({
         title: "Stages reordered",
@@ -801,7 +842,7 @@ export function KanbanBoard() {
     } finally {
       cleanupStageDrag()
     }
-  }, [stages, DEV_MODE, toast])
+  }, [stages, toast])
 
   const onStageDragCancel = useCallback(() => {
     console.log('[STAGES] Stage drag cancelled');
@@ -907,7 +948,6 @@ export function KanbanBoard() {
             <Plus className="mr-2 h-4 w-4" />
             Add Stage
           </Button>
-
 
           <Button
             className="relative bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white px-6 py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 border-0 overflow-hidden group"

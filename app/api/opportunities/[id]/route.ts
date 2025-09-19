@@ -50,23 +50,46 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       naicsCode,
       setAsideType,
       contractType,
+      opportunityUrl,
       placeOfPerformance,
     } = body
+
+    // Get updated company information if companyId provided
+    let agency = undefined
+    if (companyId) {
+      const company = await db.company.findUnique({
+        where: { id: companyId },
+        select: { name: true }
+      })
+      if (company) {
+        agency = company.name
+      }
+    }
 
     const opportunity = await db.opportunity.update({
       where: { id: params.id },
       data: {
         title,
-        // Consistent field mapping: use description consistently with keyRequirements
+        // Consistent with POST route - use description as keyRequirements
         keyRequirements: description,
+        // Update agency if company changed
+        ...(agency !== undefined && { agency }),
         // Update related fields with consistent handling
         solicitationNumber: samGovId || null,
         estimatedValueMin: null,
         estimatedValueMax: value ? Number.parseInt(value) : null,
         dueDate: closeDate ? new Date(closeDate) : null,
         priority: priority || "MEDIUM",
-        samGovLink: samGovId || null,
+        // Fix: Only update opportunityUrl if it's provided and not empty
+        ...(opportunityUrl !== undefined && opportunityUrl !== null && opportunityUrl.trim() !== "" && {
+          opportunityUrl: opportunityUrl.trim()
+        }),
         naicsCodes: naicsCode ? [naicsCode] : [],
+        setAsideType: setAsideType as any,
+        ...(contractType && contractType !== "NO_CONTRACT_TYPE" && {
+          opportunityType: contractType as any
+        }),
+        // Other fields that might be updated
         updatedAt: new Date(),
       },
     })

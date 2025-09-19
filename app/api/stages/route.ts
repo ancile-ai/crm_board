@@ -1,5 +1,3 @@
-export const dynamic = 'force-dynamic'
-
 import { type NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
@@ -10,14 +8,6 @@ export async function GET(request: NextRequest) {
     const session = await getServerSession(authOptions)
     if (!session?.user?.email?.endsWith("@ancile.io")) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
-
-    const user = await db.user.findUnique({
-      where: { email: session.user.email },
-    })
-
-    if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 })
     }
 
     // Get the default pipeline's stages
@@ -50,45 +40,28 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const user = await db.user.findUnique({
-      where: { email: session.user.email },
-    })
-
-    if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 })
-    }
-
     const body = await request.json()
-    const { stageId, newOrder } = body
+    const { stageId, newOrder, stages } = body
 
-    if (!stageId || typeof newOrder !== 'number') {
-      return NextResponse.json({ error: "Stage ID and new order are required" }, { status: 400 })
-    }
-
-    // Get the default pipeline
-    const pipeline = await db.pipeline.findFirst({
-      where: { isDefault: true },
-      include: {
-        stages: {
-          orderBy: { order: 'asc' }
-        }
-      }
-    })
-
-    if (!pipeline) {
-      return NextResponse.json({ error: "Default pipeline not found" }, { status: 404 })
-    }
-
-    // Update all stages with new order based on their sorted positions
-    const updatePromises = pipeline.stages.map((stage, index) => {
-      const order = index + 1
-      return db.stage.update({
-        where: { id: stage.id },
-        data: { order }
+    if (stages) {
+      // Handle reordering with complete stage list
+      const updatePromises = stages.map((stage: { id: string }, index: number) => {
+        const order = index + 1
+        return db.stage.update({
+          where: { id: stage.id },
+          data: { order }
+        })
       })
-    })
-
-    await Promise.all(updatePromises)
+      await Promise.all(updatePromises)
+    } else if (stageId && typeof newOrder === 'number') {
+      // Handle single stage reordering (legacy support)
+      await db.stage.update({
+        where: { id: stageId },
+        data: { order: newOrder }
+      })
+    } else {
+      return NextResponse.json({ error: "Invalid request body" }, { status: 400 })
+    }
 
     return NextResponse.json({
       success: true,

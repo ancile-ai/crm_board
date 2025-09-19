@@ -39,6 +39,7 @@ interface Opportunity {
   setAsideType?: string
   contractType?: string
   placeOfPerformance?: string
+  opportunityUrl?: string
 }
 
 interface OpportunityFormProps {
@@ -69,6 +70,7 @@ export function OpportunityForm({ opportunity, companies, users, onSubmit, onCan
     setAsideType: opportunity?.setAsideType,
     contractType: opportunity?.contractType || "NO_CONTRACT_TYPE",
     placeOfPerformance: opportunity?.placeOfPerformance || "",
+    opportunityUrl: opportunity?.opportunityUrl || "",
   })
 
 
@@ -103,6 +105,9 @@ export function OpportunityForm({ opportunity, companies, users, onSubmit, onCan
     if (!formData.companyId) {
       newErrors.companyId = "Company is required"
     }
+    if (!formData.opportunityUrl.trim()) {
+      newErrors.opportunityUrl = "Opportunity URL is required"
+    }
     if (formData.description.length > 1000) {
       newErrors.description = "Description must be less than 1000 characters"
     }
@@ -132,7 +137,9 @@ export function OpportunityForm({ opportunity, companies, users, onSubmit, onCan
 
       if (response.ok) {
         const result = await response.json()
+        console.log("[OPPORTUNITY FORM] API response successful:", result)
         if (onSubmit) {
+          console.log("[OPPORTUNITY FORM] Calling onSubmit callback")
           onSubmit(result)
         } else {
           router.push("/dashboard")
@@ -184,6 +191,23 @@ export function OpportunityForm({ opportunity, companies, users, onSubmit, onCan
               rows={3}
             />
             {errors.description && <p className="text-sm text-red-600 font-medium">{errors.description}</p>}
+          </div>
+
+          {/* Opportunity URL Field */}
+          <div className="space-y-2">
+            <Label htmlFor="opportunityUrl" className="text-base font-semibold text-gray-900">
+              Opportunity URL <span className="text-red-500">*</span>
+            </Label>
+            <Input
+              id="opportunityUrl"
+              value={formData.opportunityUrl}
+              onChange={(e) => handleChange("opportunityUrl", e.target.value)}
+              placeholder="sam.gov or https://sam.gov/opp/notice123/view"
+              type="text"
+              className={`w-full h-10 px-3 text-base border-gray-300 rounded-lg transition-shadow focus:shadow-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white ${errors.opportunityUrl ? 'border-red-300 focus:border-red-500 focus:ring-red-500' : 'border-gray-300'}`}
+              required
+            />
+            {errors.opportunityUrl && <p className="text-sm text-red-600 font-medium">{errors.opportunityUrl}</p>}
           </div>
         </div>
 

@@ -5,12 +5,10 @@ import { db } from "@/lib/db"
 
 export async function GET(request: NextRequest) {
   try {
-    // Temporarily disable authentication check for testing
-    // const session = await getServerSession(authOptions)
-    // if (!session?.user?.email?.endsWith("@ancile.io")) {
-    //   return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    // }
-
+    const session = await getServerSession(authOptions)
+    if (!session?.user?.email?.endsWith("@ancile.io")) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
     const { searchParams } = new URL(request.url)
     const stage = searchParams.get("stage")
     const priority = searchParams.get("priority")
@@ -40,12 +38,10 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    // Temporarily disable authentication check for testing
-    // const session = await getServerSession(authOptions)
-    // if (!session?.user?.email?.endsWith("@ancile.io")) {
-    //   return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    // }
-
+    const session = await getServerSession(authOptions)
+    if (!session?.user?.email?.endsWith("@ancile.io")) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
     const body = await request.json()
     const {
       title,
@@ -60,29 +56,58 @@ export async function POST(request: NextRequest) {
       naicsCode,
       setAsideType,
       contractType,
-      placeOfPerformance,
+      opportunityUrl,
     } = body
 
-    const opportunity = await db.opportunity.create({
+    // Get the first stage (Lead Generation) from the default pipeline
+    const defaultPipeline = await db.pipeline.findFirst({
+      where: { isDefault: true },
+      include: {
+        stages: {
+          orderBy: { order: 'asc' },
+          take: 1
+        }
+      }
+    })
+
+    if (!defaultPipeline || !defaultPipeline.stages.length) {
+      return NextResponse.json({ error: "Default pipeline with stages not found" }, { status: 500 })
+    }
+
+    const defaultStageId = defaultPipeline.stages[0].id
+
+    // Get company information if provided
+    let agency = "Unknown Agency"
+    if (companyId) {
+      const company = await db.company.findUnique({
+        where: { id: companyId },
+        select: { name: true }
+      })
+      if (company) {
+        agency = company.name
+      }
+    }
+
+    const opportunity = await (db.opportunity as any).create({
       data: {
         title,
-        // Consistent field mapping: use description consistently
         keyRequirements: description,
-        // Set default values for required fields consistently
-        agency: "Unknown Agency",
+        agency: agency,
         contractVehicle: "SAM.gov",
         solicitationNumber: samGovId || null,
         estimatedValueMin: null,
         estimatedValueMax: value ? Number.parseInt(value) : null,
         dueDate: closeDate ? new Date(closeDate) : null,
-        currentStageId: "stage-lead-gen", // Use default stage
-        opportunityType: "RFP", // Required field
+        currentStageId: defaultStageId,
+        companyId: companyId || null,
+        naicsCodes: naicsCode ? [naicsCode] : [],
+        setAsideType: setAsideType as any,
+        opportunityType: contractType === "NO_CONTRACT_TYPE" ? "RFP" : (contractType as any) || "RFP",
         priority: priority || "MEDIUM",
         probability: 50,
-        naicsCodes: naicsCode ? [naicsCode] : [],
         technicalFocus: [],
         teamingPartners: [],
-        // createdById: session.user.id,
+        opportunityUrl: opportunityUrl || null,
       },
     })
 

@@ -103,7 +103,7 @@ model Opportunity {
   currentStageId    String
   currentStage      Stage            @relation(fields: [currentStageId], references: [id])
   companyId         String?
-  company           Company?         @relation(fields: [companyId], references: [id])
+  company           Company?         @relation("CompanyOpportunities", fields: [companyId], references: [id])
   naicsCodes        String[]
   setAsideType      SetAsideType?
   opportunityType   OpportunityType
@@ -112,7 +112,7 @@ model Opportunity {
   priority          Priority         @default(MEDIUM)
   assignedToId      String?
   assignedTo        User?            @relation(fields: [assignedToId], references: [id])
-  samGovLink        String?
+  opportunityUrl     String?
   keyRequirements   String?          @db.Text
   teamingPartners   String[]
   nextActions       String?          @db.Text
@@ -221,7 +221,7 @@ model Company {
   eightA      Boolean  @default(false)
 
   contacts     Contact[]
-  opportunities Opportunity[]
+  opportunities Opportunity[] @relation("CompanyOpportunities")
 
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt

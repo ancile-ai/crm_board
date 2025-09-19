@@ -3,13 +3,14 @@
 import { useState, useEffect, memo, useCallback } from "react"
 import { useSortable } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
-import { GripVertical, MoreVertical, Edit, Trash2, Building2, Calendar, DollarSign } from "lucide-react"
+import { GripVertical, MoreVertical, Edit, Trash2, Building2, Calendar, DollarSign, MessageSquare, ExternalLink } from "lucide-react"
 import { format } from "date-fns"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { useToast } from "@/hooks/use-toast"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
 import { cn } from "@/lib/utils"
+import { NotesModal } from "@/components/modals/notes-modal"
 
 interface Opportunity {
   id: string
@@ -25,6 +26,7 @@ interface Opportunity {
   probability: number
   opportunityType: "RFP" | "RFI" | "RFQ" | "SOURCES_SOUGHT" | "BAA" | "SBIR_STTR" | "OTHER"
   technicalFocus: string[]
+  opportunityUrl?: string
 }
 
 interface OpportunityCardProps {
@@ -42,12 +44,14 @@ function CardActionMenu({
   opportunityTitle,
   onEdit,
   onDeleteConfirm,
+  onViewNotes,
   isDragging,
 }: {
   opportunityId: string
   opportunityTitle: string
   onEdit?: (id: string) => void
   onDeleteConfirm?: () => void
+  onViewNotes?: () => void
   isDragging: boolean
 }) {
   const [isOpen, setIsOpen] = useState(false)
@@ -136,6 +140,16 @@ function CardActionMenu({
             <span>Edit</span>
           </button>
           <button
+            onClick={() => {
+              onViewNotes?.()
+              setIsOpen(false)
+            }}
+            className="flex items-center gap-2 w-full px-3 py-2 text-sm text-left hover:bg-slate-50 focus:bg-slate-50 focus:outline-none"
+          >
+            <MessageSquare className="h-4 w-4 text-slate-500" />
+            <span>View Notes</span>
+          </button>
+          <button
             onClick={handleDelete}
             className="flex items-center gap-2 w-full px-3 py-2 text-sm text-left text-red-600 hover:bg-red-50 focus:bg-red-50 focus:outline-none"
           >
@@ -157,6 +171,7 @@ function OpportunityCard({
   isDragging,
 }: OpportunityCardProps) {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+  const [isNotesModalOpen, setIsNotesModalOpen] = useState(false)
 
   const handleDeleteConfirm = useCallback(() => {
     setIsDeleteDialogOpen(true)
@@ -247,51 +262,6 @@ function OpportunityCard({
     }
   }, [opportunity.dueDate])
 
-  // Enhanced keyboard navigation with better accessibility
-  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
-    if (!onKeyboardMove || isDragging) return
-
-    const isModifier = e.ctrlKey || e.metaKey || e.shiftKey
-    switch (e.key) {
-      case 'ArrowUp':
-        if (isModifier) {
-          e.preventDefault()
-          onKeyboardMove(opportunity.id, 'up')
-        }
-        break
-      case 'ArrowDown':
-        if (isModifier) {
-          e.preventDefault()
-          onKeyboardMove(opportunity.id, 'down')
-        }
-        break
-      case 'ArrowLeft':
-        if (isModifier) {
-          e.preventDefault()
-          onKeyboardMove(opportunity.id, 'left')
-        }
-        break
-      case 'ArrowRight':
-        if (isModifier) {
-          e.preventDefault()
-          onKeyboardMove(opportunity.id, 'right')
-        }
-        break
-      case 'Enter':
-      case ' ':
-        e.preventDefault()
-        onEdit?.(opportunity.id)
-        break
-      case 'Delete':
-      case 'Backspace':
-        if (isModifier) {
-          e.preventDefault()
-          handleDeleteConfirm()
-        }
-        break
-    }
-  }, [onKeyboardMove, opportunity.id, onEdit, onDelete, isDragging, handleDeleteConfirm])
-
   // Enhanced DnD-kit sortable setup with improved accessibility
   const {
     attributes,
@@ -333,8 +303,6 @@ function OpportunityCard({
         priorityRank >= 4 && "ring-2 ring-red-200",
         priorityRank >= 3 && "ring-1 ring-orange-200"
       )}
-      tabIndex={0}
-      onKeyDown={handleKeyDown}
       role="article"
       aria-label={`Opportunity: ${opportunity.title} - Priority ${opportunity.priority} - ${opportunity.probability}% probability`}
       aria-describedby={`opp-${opportunity.id}-description`}
@@ -353,18 +321,7 @@ function OpportunityCard({
               isCardDragging ? "bg-slate-100 border-slate-400" : "bg-slate-50",
               isDragging && "opacity-50 cursor-not-allowed"
             )}
-            aria-label="Drag handle - Press Ctrl+Arrow keys to move with keyboard"
-            tabIndex={0}
-            role="button"
-            onKeyDown={(e) => {
-              // Space/Enter to start drag for better accessibility
-              if (e.key === ' ' || e.key === 'Enter') {
-                e.preventDefault()
-                if (listeners && typeof listeners.onKeyDown === 'function') {
-                  listeners.onKeyDown(e)
-                }
-              }
-            }}
+            aria-label="Drag handle"
           >
             <GripVertical className="h-3 w-3 text-slate-400" />
           </div>
@@ -379,6 +336,27 @@ function OpportunityCard({
             <div className="flex items-center gap-2 text-xs text-slate-600">
               <Building2 className="h-3 w-3 flex-shrink-0" />
               <span className="truncate">{opportunity.agency}</span>
+            </div>
+            <div className="flex items-center gap-2 text-xs text-slate-600">
+              <ExternalLink className="h-3 w-3 flex-shrink-0" />
+              {opportunity.opportunityUrl ? (
+                <a
+                  href={
+                    opportunity.opportunityUrl.startsWith('http://') ||
+                    opportunity.opportunityUrl.startsWith('https://')
+                      ? opportunity.opportunityUrl
+                      : 'https://' + opportunity.opportunityUrl
+                  }
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-600 hover:text-blue-800 hover:underline truncate"
+                  title={opportunity.opportunityUrl}
+                >
+                  View Opportunity
+                </a>
+              ) : (
+                <span className="text-slate-400">Unknown</span>
+              )}
             </div>
           </div>
 
@@ -401,6 +379,7 @@ function OpportunityCard({
                 opportunityTitle={opportunity.title}
                 onEdit={onEdit}
                 onDeleteConfirm={handleDeleteConfirm}
+                onViewNotes={() => setIsNotesModalOpen(true)}
                 isDragging={isDragging || isCardDragging}
               />
             </div>
@@ -422,12 +401,12 @@ function OpportunityCard({
         )}
 
         {/* Due Date with enhanced styling */}
-        {dueDateInfo && (
-          <div className="flex items-center gap-2 mb-3 text-xs">
-            <Calendar className="h-3 w-3 text-slate-500" />
-            <span className="text-slate-700">
-              {format(opportunity.dueDate!, "MMM d")}
-            </span>
+        <div className="flex items-center gap-2 mb-3 text-xs">
+          <Calendar className="h-3 w-3 text-slate-500" />
+          <span className="text-slate-700">
+            {opportunity.dueDate ? format(opportunity.dueDate, "MMM d") : "Unknown"}
+          </span>
+          {dueDateInfo && (
             <Badge
               variant={dueDateInfo.variant as any}
               className={cn(
@@ -438,46 +417,58 @@ function OpportunityCard({
             >
               {dueDateInfo.text}
             </Badge>
-          </div>
-        )}
+          )}
+        </div>
 
         {/* Value with enhanced formatting */}
-        {opportunity.estimatedValueMax && (
-          <div className="flex items-center gap-2 mb-3 text-xs">
-            <DollarSign className="h-3 w-3 text-green-600" />
-            <span className="font-semibold text-green-700">
-              {formatCurrency(opportunity.estimatedValueMax)}
-            </span>
-            {opportunity.estimatedValueMin && opportunity.estimatedValueMin !== opportunity.estimatedValueMax && (
-              <span className="text-slate-500">
-                ({formatCurrency(opportunity.estimatedValueMin)} min)
+        <div className="flex items-center gap-2 mb-3 text-xs">
+          <DollarSign className="h-3 w-3 text-green-600" />
+          {opportunity.estimatedValueMax ? (
+            <>
+              <span className="font-semibold text-green-700">
+                {formatCurrency(opportunity.estimatedValueMax)}
               </span>
-            )}
-          </div>
-        )}
+              {opportunity.estimatedValueMin && opportunity.estimatedValueMin !== opportunity.estimatedValueMax && (
+                <span className="text-slate-500">
+                  ({formatCurrency(opportunity.estimatedValueMin)} min)
+                </span>
+              )}
+            </>
+          ) : (
+            <span className="text-slate-500">Unknown</span>
+          )}
+        </div>
       </div>
 
       {/* Footer Section */}
       <div className="px-4 pb-4">
         {/* Technical Focus Badges with improved display */}
-        {opportunity.technicalFocus.length > 0 && (
-          <div className="flex flex-wrap gap-1 mb-3">
-            {opportunity.technicalFocus.slice(0, 2).map((focus) => (
-              <Badge
-                key={focus}
-                variant="outline"
-                className="text-xs h-5 px-2 text-slate-600 border-slate-300"
-              >
-                {focus}
-              </Badge>
-            ))}
-            {opportunity.technicalFocus.length > 2 && (
-              <Badge variant="outline" className="text-xs h-5 px-2 text-slate-500 border-slate-300">
-                +{opportunity.technicalFocus.length - 2} more
-              </Badge>
-            )}
-          </div>
-        )}
+        <div className="flex flex-wrap gap-1 mb-3">
+          {opportunity.technicalFocus.length > 0 ? (
+            <>
+              {opportunity.technicalFocus.slice(0, 2).map((focus) => (
+                <Badge
+                  key={focus}
+                  variant="outline"
+                  className="text-xs h-5 px-2 text-slate-600 border-slate-300"
+                >
+                  {focus}
+                </Badge>
+              ))}
+              {opportunity.technicalFocus.length > 2 && (
+                <Badge variant="outline" className="text-xs h-5 px-2 text-slate-500 border-slate-300">
+                  +{opportunity.technicalFocus.length - 2} more
+                </Badge>
+              )}
+            </>
+          ) : (
+            <Badge variant="outline" className="text-xs h-5 px-2 text-slate-400 border-slate-200">
+              Unknown Focus
+            </Badge>
+          )}
+        </div>
+
+
 
         {/* Bottom Status Bar */}
         <div className="flex items-center justify-between">
@@ -525,6 +516,14 @@ function OpportunityCard({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Notes Modal */}
+      <NotesModal
+        isOpen={isNotesModalOpen}
+        onClose={() => setIsNotesModalOpen(false)}
+        opportunityId={opportunity.id}
+        opportunityTitle={opportunity.title}
+      />
     </div>
   )
 }
@@ -535,6 +534,7 @@ export default memo(OpportunityCard, (prevProps, nextProps) => {
     prevProps.opportunity.id === nextProps.opportunity.id &&
     prevProps.opportunity.title === nextProps.opportunity.title &&
     prevProps.opportunity.agency === nextProps.opportunity.agency &&
+    prevProps.opportunity.opportunityUrl === nextProps.opportunity.opportunityUrl &&
     prevProps.opportunity.priority === nextProps.opportunity.priority &&
     prevProps.opportunity.probability === nextProps.opportunity.probability &&
     prevProps.opportunity.dueDate?.getTime() === nextProps.opportunity.dueDate?.getTime() &&

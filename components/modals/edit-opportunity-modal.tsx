@@ -48,31 +48,20 @@ export function EditOpportunityModal({
         setCompanies(companiesData);
         setUsers(usersData);
       } else {
-        console.warn("API failed, using mock data");
-        setMockData();
+        throw new Error("Failed to fetch required data")
       }
     } catch (error) {
       console.error("Error fetching data:", error);
-      setMockData();
+      throw error; // Let error propagate
     } finally {
       setLoading(false);
     }
   };
 
-  const setMockData = () => {
-    setCompanies([
-      { id: "1", name: "Demo Company 1" },
-      { id: "2", name: "Demo Company 2" },
-      { id: "3", name: "Demo Company 3" },
-    ]);
-    setUsers([
-      { id: "1", name: "John Doe", email: "john@demo.com" },
-      { id: "2", name: "Jane Smith", email: "jane@demo.com" },
-      { id: "3", name: "Bob Wilson", email: "bob@demo.com" },
-    ]);
-  };
+
 
   const handleSubmit = (data: any) => {
+    console.log("[EDIT MODAL] Form submitted with data:", data);
     onSuccess?.(data);
     onClose();
   };

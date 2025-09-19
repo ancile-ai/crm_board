@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
 
         const setAsideType = setAsideMapping[opp.typeOfSetAside as keyof typeof setAsideMapping] || null
 
-        // Create opportunity
+        // Create opportunity with external SAM.gov opportunity URL
         const opportunity = await db.opportunity.create({
           data: {
             title: opp.title,
@@ -77,6 +77,7 @@ export async function POST(request: NextRequest) {
             priority: "MEDIUM" as const,
             technicalFocus: [],
             teamingPartners: [],
+            opportunityUrl: `https://www.sam.gov/opp/${opp.noticeId}/view`, // External link to SAM.gov opportunity
           },
         })
 

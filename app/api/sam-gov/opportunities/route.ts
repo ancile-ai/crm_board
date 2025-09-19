@@ -16,9 +16,12 @@ export async function GET(request: NextRequest) {
     const naicsCode = searchParams.get("naicsCode") || ""
     const setAside = searchParams.get("setAside") || ""
     const limit = searchParams.get("limit") || "50"
+    const baseUrl = searchParams.get("baseUrl") || ""
 
-    // SAM.gov API endpoint (using the public API)
-    const samApiUrl = "https://api.sam.gov/opportunities/v2/search"
+    // SAM.gov API endpoint (using the public API or custom base URL)
+    const defaultApiUrl = "https://api.sam.gov"
+    const baseApiUrl = baseUrl || defaultApiUrl
+    const samApiUrl = `${baseApiUrl}/opportunities/v2/search`
     const params = new URLSearchParams({
       api_key: process.env.SAM_GOV_API_KEY || "DEMO_KEY",
       keyword,
