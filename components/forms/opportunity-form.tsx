@@ -126,7 +126,6 @@ export function OpportunityForm({ opportunity, companies, users, onSubmit, onCan
 
     try {
       const url = opportunity ? `/api/opportunities/${opportunity.id}` : "/api/opportunities"
-
       const method = opportunity ? "PUT" : "POST"
 
       const response = await fetch(url, {
@@ -137,9 +136,7 @@ export function OpportunityForm({ opportunity, companies, users, onSubmit, onCan
 
       if (response.ok) {
         const result = await response.json()
-        console.log("[OPPORTUNITY FORM] API response successful:", result)
         if (onSubmit) {
-          console.log("[OPPORTUNITY FORM] Calling onSubmit callback")
           onSubmit(result)
         } else {
           router.push("/dashboard")

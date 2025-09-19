@@ -455,11 +455,17 @@ export function KanbanBoard() {
             const latestOpportunities = await opportunitiesResponse.json()
             const currentTime = Date.now()
 
+            console.log('[KANBAN] Polling for updates...')
+            console.log('[KANBAN] Latest opportunities from API:', latestOpportunities)
+            console.log('[KANBAN] Current opportunities in state:', opportunities)
+
             // Check for actual changes by comparing key fields
             const hasChanges = latestOpportunities.length !== opportunities.length ||
               latestOpportunities.some((latestOpp: any) => {
                 const currentOpp = opportunities.find(opp => opp.id === latestOpp.id)
                 if (!currentOpp) return true // New opportunity
+
+                console.log('[KANBAN] Comparing opportunity:', latestOpp.id)
 
                 // Check if any important fields have changed
                 const changedFields = [
@@ -473,9 +479,12 @@ export function KanbanBoard() {
                     const currentDate = currentOpp.dueDate ? currentOpp.dueDate.getTime() : null
                     return latestDate !== currentDate
                   }
+                  console.log(`[KANBAN] Comparing ${field}: ${latestOpp[field]} vs ${currentOpp[field]}`)
                   return latestOpp[field] !== currentOpp[field]
                 })
               })
+
+            console.log(`[KANBAN] Has changes detected: ${hasChanges}`)
 
             if (hasChanges) {
               console.log('[KANBAN] Detected external changes, updating opportunities')
@@ -647,11 +656,9 @@ export function KanbanBoard() {
   }, [opportunities, toast])
 
   const handleModalSuccess = useCallback((updated?: any) => {
-    console.log("[KANBAN BOARD] handleModalSuccess called with:", updated)
     setIsModalOpen(false)
     setSelectedOpportunity(null)
     if (updated) {
-      console.log("[KANBAN BOARD] Updating opportunity in local state")
       // Transform the updated data from API response to match frontend format
       const transformedOpportunity = {
         id: updated.id,
@@ -681,20 +688,14 @@ export function KanbanBoard() {
         opportunityUrl: updated.opportunityUrl || "" // Ensure this field is included
       }
 
-      console.log("[KANBAN BOARD] Transformed opportunity:", transformedOpportunity)
-
       setOpportunities((prev) => {
         const exists = prev.some((o) => o.id === updated.id)
         if (exists) {
-          console.log("[KANBAN BOARD] Updating existing opportunity")
           return prev.map((o) => (o.id === updated.id ? transformedOpportunity : o))
         } else {
-          console.log("[KANBAN BOARD] Adding new opportunity")
           return [...prev, transformedOpportunity]
         }
       })
-    } else {
-      console.log("[KANBAN BOARD] No updated data received")
     }
   }, [])
 

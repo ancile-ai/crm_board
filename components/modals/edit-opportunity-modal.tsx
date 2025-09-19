@@ -61,8 +61,9 @@ export function EditOpportunityModal({
 
 
   const handleSubmit = (data: any) => {
-    console.log("[EDIT MODAL] Form submitted with data:", data);
-    onSuccess?.(data);
+    if (onSuccess) {
+      onSuccess(data);
+    }
     onClose();
   };
 
