@@ -3,7 +3,9 @@
 import { memo, useMemo } from "react"
 import { useDroppable } from "@dnd-kit/core"
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable"
-import { Plus } from "lucide-react"
+import { Plus, MoreVertical, Edit, Trash2 } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import OpportunityCard from "./opportunity-card"
 
 interface Stage {
@@ -36,9 +38,11 @@ interface KanbanColumnProps {
   onEdit?: (opportunityId: string) => void
   onDelete?: (opportunityId: string) => void
   onKeyboardMove?: (opportunityId: string, direction: 'up' | 'down' | 'left' | 'right') => void
+  onEditStage?: (stageId: string) => void
+  onDeleteStage?: (stageId: string) => void
 }
 
-export function KanbanColumn({ stage, opportunities, onEdit, onDelete, onKeyboardMove }: KanbanColumnProps) {
+export function KanbanColumn({ stage, opportunities, onEdit, onDelete, onKeyboardMove, onEditStage, onDeleteStage }: KanbanColumnProps) {
   const { setNodeRef, isOver } = useDroppable({
     id: stage.id,
   })
@@ -72,8 +76,41 @@ export function KanbanColumn({ stage, opportunities, onEdit, onDelete, onKeyboar
               </div>
               <h3 className="text-xl font-bold text-slate-900 leading-tight tracking-tight">{stage.name}</h3>
             </div>
-            <div className="bg-gradient-to-r from-slate-100 to-slate-200 px-4 py-2 rounded-xl text-sm font-bold text-slate-700 shadow-sm border border-slate-300/50">
-              {opportunities.length}
+            <div className="flex items-center gap-2">
+              {(onEditStage || onDeleteStage) && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 w-8 p-0 text-slate-500 hover:text-slate-700 hover:bg-slate-100"
+                    >
+                      <MoreVertical className="h-4 w-4" />
+                      <span className="sr-only">Stage options</span>
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    {onEditStage && (
+                      <DropdownMenuItem onClick={() => onEditStage(stage.id)}>
+                        <Edit className="mr-2 h-4 w-4" />
+                        Edit Stage
+                      </DropdownMenuItem>
+                    )}
+                    {onDeleteStage && (
+                      <DropdownMenuItem
+                        onClick={() => onDeleteStage(stage.id)}
+                        className="text-red-600 hover:text-red-700 focus:text-red-700"
+                      >
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Delete Stage
+                      </DropdownMenuItem>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
+              <div className="bg-gradient-to-r from-slate-100 to-slate-200 px-4 py-2 rounded-xl text-sm font-bold text-slate-700 shadow-sm border border-slate-300/50">
+                {opportunities.length}
+              </div>
             </div>
           </div>
 

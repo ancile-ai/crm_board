@@ -439,6 +439,62 @@ export function KanbanBoard() {
     }
   }
 
+  // Stage management functions
+  const handleAddStage = () => {
+    setSelectedStage(null)
+    setStageFormData({ name: '', color: '#3b82f6' })
+    setIsStageModalOpen(true)
+  }
+
+  const handleEditStage = (stageId: string) => {
+    const stage = stages.find(s => s.id === stageId)
+    if (stage) {
+      setSelectedStage(stage)
+      setStageFormData({ name: stage.name, color: stage.color })
+      setIsStageModalOpen(true)
+    }
+  }
+
+  const handleDeleteStage = async (stageId: string) => {
+    const stageOpportunities = getOpportunitiesForStage(stageId)
+    if (stageOpportunities.length > 0) {
+      alert(`Cannot delete stage with ${stageOpportunities.length} opportunities. Please move or delete all opportunities first.`)
+      return
+    }
+
+    if (!confirm('Are you sure you want to delete this stage?')) return
+
+    setStages(prev => prev.filter(s => s.id !== stageId))
+  }
+
+  const handleStageModalSave = () => {
+    if (!stageFormData.name.trim()) return
+
+    if (selectedStage) {
+      // Edit existing stage
+      setStages(prev => prev.map(s => s.id === selectedStage.id ? { ...s, ...stageFormData } : s))
+    } else {
+      // Add new stage
+      const newStage = {
+        id: `stage-${Date.now()}`,
+        name: stageFormData.name.trim(),
+        color: stageFormData.color,
+        order: stages.length + 1
+      }
+      setStages(prev => [...prev, newStage])
+    }
+
+    setIsStageModalOpen(false)
+    setSelectedStage(null)
+    setStageFormData({ name: '', color: '#3b82f6' })
+  }
+
+  const handleStageModalClose = () => {
+    setIsStageModalOpen(false)
+    setSelectedStage(null)
+    setStageFormData({ name: '', color: '#3b82f6' })
+  }
+
   return (
     <div className={`w-full min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/20 flex flex-col relative overflow-hidden ${isDragging ? 'drag-active' : ''}`}>
       {/* Decorative background elements */}
@@ -464,7 +520,15 @@ export function KanbanBoard() {
             <p className="text-slate-600 text-lg font-medium">{opportunities.length} opportunities tracking</p>
           </div>
         </div>
-        <div className="flex items-center gap-6">
+        <div className="flex items-center gap-4">
+          <Button
+            variant="outline"
+            className="text-slate-700 hover:text-slate-900 hover:border-slate-400 relative bg-white/80 backdrop-blur-sm px-4 py-2 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 border-slate-200"
+            onClick={handleAddStage}
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            Add Stage
+          </Button>
           <div className="text-right">
             <div className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-1">Pipeline Health</div>
             <div className="flex items-center gap-2">
@@ -502,6 +566,8 @@ export function KanbanBoard() {
                 onEdit={handleEdit}
                 onDelete={handleDelete}
                 onKeyboardMove={handleKeyboardMove}
+                onEditStage={handleEditStage}
+                onDeleteStage={handleDeleteStage}
               />
             ))}
           </div>
@@ -516,6 +582,49 @@ export function KanbanBoard() {
           onSuccess={handleModalSuccess}
         />
       )}
+
+      {/* Stage Management Modal */}
+      <Dialog open={isStageModalOpen} onOpenChange={setIsStageModalOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>{selectedStage ? 'Edit Stage' : 'Add New Stage'}</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="stage-name" className="text-right">
+                Name
+              </Label>
+              <Input
+                id="stage-name"
+                value={stageFormData.name}
+                onChange={(e) => setStageFormData(prev => ({ ...prev, name: e.target.value }))}
+                className="col-span-3"
+                placeholder="Enter stage name..."
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="stage-color" className="text-right">
+                Color
+              </Label>
+              <Input
+                id="stage-color"
+                type="color"
+                value={stageFormData.color}
+                onChange={(e) => setStageFormData(prev => ({ ...prev, color: e.target.value }))}
+                className="col-span-3 w-16 h-10 border rounded-lg cursor-pointer"
+              />
+            </div>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={handleStageModalClose}>
+              Cancel
+            </Button>
+            <Button onClick={handleStageModalSave}>
+              {selectedStage ? 'Update Stage' : 'Add Stage'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
 
   )

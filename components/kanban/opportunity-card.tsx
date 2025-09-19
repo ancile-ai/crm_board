@@ -62,10 +62,14 @@ function ActionMenu({
   opportunityId,
   onEdit,
   onDelete,
+  isOpen,
+  onOpenChange,
 }: {
   opportunityId: string
   onEdit?: (id: string) => void
   onDelete?: (id: string) => void
+  isOpen: boolean
+  onOpenChange: (open: boolean) => void
 }) {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const { toast } = useToast()
@@ -81,7 +85,7 @@ function ActionMenu({
 
   return (
     <>
-      <DropdownMenu>
+      <DropdownMenu open={isOpen} onOpenChange={onOpenChange}>
         <DropdownMenuTrigger asChild>
           <Button
             variant="ghost"
@@ -141,6 +145,8 @@ function OpportunityCard({
   index,
   onKeyboardMove,
 }: OpportunityCardProps) {
+  const [isMenuOpen, setIsMenuOpen] = useState(false)
+
   const formatCurrency = (amount: number) =>
     new Intl.NumberFormat("en-US", {
       style: "currency",
@@ -263,13 +269,17 @@ function OpportunityCard({
               </Badge>
 
               <div
-                className="opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+                className={`transition-opacity duration-200 ${
+                  isMenuOpen ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+                }`}
                 data-no-dnd="true"
               >
                 <ActionMenu
                   opportunityId={opportunity.id}
                   onEdit={onEdit}
                   onDelete={onDelete}
+                  isOpen={isMenuOpen}
+                  onOpenChange={setIsMenuOpen}
                 />
               </div>
             </div>
