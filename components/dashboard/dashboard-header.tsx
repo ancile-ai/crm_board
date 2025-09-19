@@ -36,8 +36,7 @@ export function DashboardHeader({ user }: DashboardHeaderProps) {
           <div className="flex items-center space-x-2">
             <Building2 className="h-8 w-8 text-primary" />
             <div>
-              <h1 className="text-xl font-bold text-foreground">Ancile CRM</h1>
-              <p className="text-sm text-muted-foreground">Government Contracting</p>
+              <h1 className="text-xl font-bold text-foreground">Ancile AI - CRM</h1>
             </div>
           </div>
         </div>

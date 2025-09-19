@@ -58,7 +58,7 @@ export default function LoginPage() {
               <path d="M10 18h4"></path>
             </svg>
           </div>
-          <h1 className="text-2xl font-bold">Ancile CRM</h1>
+          <h1 className="text-2xl font-bold">Ancile AI - CRM</h1>
           <div className="text-sm text-muted-foreground">
             Government Contracting Pipeline Management
           </div>
