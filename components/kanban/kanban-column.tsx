@@ -125,7 +125,8 @@ export function KanbanColumn({ stage, opportunities, onEdit, onDelete, onKeyboar
     setIsDeleteDialogOpen(true);
   };
 
-  const confirmDelete = () => {
+  const confirmDelete = (e?: React.MouseEvent) => {
+    e?.preventDefault();
     onDeleteStage?.(stage.id);
     setIsDeleteDialogOpen(false);
   };

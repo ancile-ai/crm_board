@@ -589,8 +589,6 @@ export function KanbanBoard() {
     const opp = opportunities.find((o) => o.id === opportunityId)
     if (!opp) return
 
-    if (!confirm(`Are you sure you want to delete "${opp.title}"?`)) return
-
     const original = opportunities
     setOpportunities((prev) => prev.filter((o) => o.id !== opportunityId))
 
@@ -638,14 +636,6 @@ export function KanbanBoard() {
 
   const handleDeleteStage = useCallback(async (stageId: string) => {
     const stage = stages.find(s => s.id === stageId)
-    const stageOpportunities = getOpportunitiesForStage(stageId)
-
-    let message = `Are you sure you want to delete "${stage?.name}"?`
-    if (stageOpportunities.length > 0) {
-      message += `\n\nThis stage contains ${stageOpportunities.length} opportunity(ies). They will remain in the system but won't be visible in the kanban.`
-    }
-
-    if (!confirm(message)) return
 
     setStages(prev => prev.filter(s => s.id !== stageId))
 
@@ -653,7 +643,7 @@ export function KanbanBoard() {
       title: "Stage deleted",
       description: `"${stage?.name}" has been removed.`,
     })
-  }, [stages, getOpportunitiesForStage, toast])
+  }, [stages, toast])
 
   // Stage reordering functionality
   const onStageDragStart = useCallback((event: DragStartEvent) => {

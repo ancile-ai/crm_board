@@ -8,6 +8,7 @@ import { format } from "date-fns"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { useToast } from "@/hooks/use-toast"
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
 import { cn } from "@/lib/utils"
 
 interface Opportunity {
@@ -40,13 +41,13 @@ function CardActionMenu({
   opportunityId,
   opportunityTitle,
   onEdit,
-  onDelete,
+  onDeleteConfirm,
   isDragging,
 }: {
   opportunityId: string
   opportunityTitle: string
   onEdit?: (id: string) => void
-  onDelete?: (id: string) => void
+  onDeleteConfirm?: () => void
   isDragging: boolean
 }) {
   const [isOpen, setIsOpen] = useState(false)
@@ -70,12 +71,10 @@ function CardActionMenu({
   const handleDelete = useCallback((e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
-    console.log("Delete clicked for opportunity:", opportunityId)
-    if (confirm(`Are you sure you want to delete "${opportunityTitle}"?`)) {
-      onDelete?.(opportunityId)
-    }
+    console.log("Delete confirmation requested for opportunity:", opportunityId)
+    onDeleteConfirm?.()
     setIsOpen(false)
-  }, [opportunityId, opportunityTitle, onDelete])
+  }, [opportunityId, onDeleteConfirm])
 
   // Close menu when clicking outside
   useEffect(() => {
@@ -157,6 +156,18 @@ function OpportunityCard({
   onKeyboardMove,
   isDragging,
 }: OpportunityCardProps) {
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+
+  const handleDeleteConfirm = useCallback(() => {
+    setIsDeleteDialogOpen(true)
+  }, [])
+
+  const confirmDelete = useCallback((e?: React.MouseEvent) => {
+    e?.preventDefault()
+    onDelete?.(opportunity.id)
+    setIsDeleteDialogOpen(false)
+  }, [onDelete, opportunity.id])
+
   // Format currency for display with better formatting
   const formatCurrency = useCallback((amount: number) => {
     const formatter = new Intl.NumberFormat("en-US", {
@@ -275,11 +286,11 @@ function OpportunityCard({
       case 'Backspace':
         if (isModifier) {
           e.preventDefault()
-          onDelete?.(opportunity.id)
+          handleDeleteConfirm()
         }
         break
     }
-  }, [onKeyboardMove, opportunity.id, onEdit, onDelete, isDragging])
+  }, [onKeyboardMove, opportunity.id, onEdit, onDelete, isDragging, handleDeleteConfirm])
 
   // Enhanced DnD-kit sortable setup with improved accessibility
   const {
@@ -389,7 +400,7 @@ function OpportunityCard({
                 opportunityId={opportunity.id}
                 opportunityTitle={opportunity.title}
                 onEdit={onEdit}
-                onDelete={onDelete}
+                onDeleteConfirm={handleDeleteConfirm}
                 isDragging={isDragging || isCardDragging}
               />
             </div>
@@ -494,6 +505,26 @@ function OpportunityCard({
         Estimated value ${opportunity.estimatedValueMax ? formatCurrency(opportunity.estimatedValueMax) : 'not specified'}.
         ${opportunity.technicalFocus.length > 0 ? `Focus areas: ${opportunity.technicalFocus.join(', ')}` : ''}`}
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Opportunity</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete "{opportunity.title}"?
+              <br /><br />
+              This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete} className="bg-red-600 hover:bg-red-700">
+              Delete Opportunity
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

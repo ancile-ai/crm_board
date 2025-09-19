@@ -2,7 +2,11 @@
   "name": "my-v0-project",
   "version": "0.1.0",
   "private": true,
+  "prisma": {
+    "seed": "node prisma/seed.js"
+  },
   "scripts": {
+    "db:seed": "npx prisma db seed",
     "build": "next build",
     "dev": "next dev",
     "lint": "next lint",
