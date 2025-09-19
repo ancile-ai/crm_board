@@ -55,40 +55,12 @@ interface KanbanColumnProps {
   isStageDraggingActive?: boolean
 }
 
-interface StageDropZoneProps {
-  beforeIndex: number
-  isOver: boolean
-}
 
-// Stage Drop Zone Component
-function StageDropZone({ beforeIndex, isOver }: StageDropZoneProps) {
-  const { setNodeRef } = useDroppable({
-    id: `stage-position-${beforeIndex}`
-  })
 
-  return (
-    <div
-      ref={setNodeRef}
-      className={`flex-shrink-0 w-16 h-full flex items-center justify-center transition-all duration-200 ${
-        isOver
-          ? 'bg-blue-100 border-2 border-blue-400 border-dashed rounded-xl'
-          : 'bg-transparent hover:bg-slate-100/50'
-      }`}
-      style={{ minWidth: '4rem' }}
-    >
-      {isOver && (
-        <div className="text-center text-blue-600">
-          <div className="text-2xl font-bold mb-1">⬇</div>
-          <div className="text-xs font-medium">Drop here</div>
-        </div>
-      )}
-    </div>
-  )
-}
-
-export function KanbanColumn({ stage, opportunities, onEdit, onDelete, onKeyboardMove, onEditStage, onDeleteStage, isDragging }: KanbanColumnProps) {
+export function KanbanColumn({ stage, opportunities, onEdit, onDelete, onKeyboardMove, onEditStage, onDeleteStage, isDragging, isStageDraggingActive }: KanbanColumnProps) {
   const { setNodeRef, isOver } = useDroppable({
     id: stage.id,
+    disabled: isStageDraggingActive,
   })
 
   const {
@@ -283,7 +255,7 @@ export function KanbanColumn({ stage, opportunities, onEdit, onDelete, onKeyboar
           className={`flex-1 overflow-auto p-4 md:p-6 transition-colors duration-200 rounded-b-2xl bg-slate-50/60 ${
             isOver
               ? "bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-blue-300 border-dashed drop-zone-active"
-              : "bg-slate-50"
+              : ""
           }`}
           style={{ minHeight: 0 }}
         >

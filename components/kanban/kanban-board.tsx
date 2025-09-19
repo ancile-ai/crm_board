@@ -29,14 +29,20 @@ function StageDropZone({ beforeIndex }: { beforeIndex: number }) {
       ref={setNodeRef}
       className={`flex-shrink-0 w-16 h-full flex items-center justify-center transition-all duration-200 ${
         isOver
-          ? 'bg-blue-100 border-2 border-blue-400 border-dashed rounded-xl'
-          : 'bg-transparent hover:bg-slate-100/50'
+          ? 'bg-blue-100 border-2 border-blue-400 border-dashed rounded-xl shadow-sm'
+          : 'bg-slate-50/50 border border-slate-200/50 border-dashed rounded-xl hover:bg-slate-100/70 hover:border-slate-300/70'
       }`}
       style={{ minWidth: '4rem' }}
     >
+      {!isOver && (
+        <div className="text-center text-slate-400 opacity-60">
+          <div className="text-sm font-medium mb-1">↔</div>
+          <div className="text-xs">Drop zone</div>
+        </div>
+      )}
       {isOver && (
         <div className="text-center text-blue-600">
-          <div className="text-2xl font-bold mb-1">⬇</div>
+          <div className="text-lg font-bold mb-1">⬇</div>
           <div className="text-xs font-medium">Drop here</div>
         </div>
       )}
@@ -54,85 +60,82 @@ const mockStages = [
 ]
 
   const mockOpportunities = [
-  {
-    id: "opp-1",
-    title: "AI-Powered Data Analytics Platform for Defense Intelligence",
-    description: "Development and implementation of an advanced data analytics platform using AI/ML technologies for defense intelligence applications.",
-    agency: "Department of Defense",
-    contractVehicle: "SAM.gov",
-    solicitationNumber: "W52P1J-24-R-0001",
-    estimatedValueMin: 500000,
-    estimatedValueMax: 2000000,
-    dueDate: new Date("2024-12-15"),
-    currentStageId: "stage-qualification",
-    stage: "QUALIFIED" as const,
-    priority: "HIGH" as const,
-    probability: 75,
-    opportunityType: "RFP" as const,
-    technicalFocus: ["AI/ML", "Data Analytics", "Cloud Computing"],
-    value: "2000000",
-    closeDate: "2024-12-15",
-    companyId: "mock-company-1",
-    assignedToId: "mock-user-1",
-    samGovId: "W52P1J-24-R-0001",
-    naicsCode: "541512",
-    setAsideType: "SMALL_BUSINESS" as const,
-    contractType: "FIXED_PRICE" as const,
-    placeOfPerformance: "Washington, DC",
-  },
-  {
-    id: "opp-2",
-    title: "Cybersecurity Assessment and Monitoring Services",
-    description: "Comprehensive cybersecurity assessment and continuous monitoring services for government systems.",
-    agency: "General Services Administration",
-    contractVehicle: "GSA Schedule",
-    solicitationNumber: "GS-35F-0001AA",
-    estimatedValueMin: 100000,
-    estimatedValueMax: 500000,
-    dueDate: new Date("2024-11-30"),
-    currentStageId: "stage-proposal",
-    stage: "PROPOSAL" as const,
-    priority: "MEDIUM" as const,
-    probability: 60,
-    opportunityType: "RFQ" as const,
-    technicalFocus: ["Cybersecurity", "Risk Assessment", "Compliance"],
-    value: "500000",
-    closeDate: "2024-11-30",
-    companyId: "mock-company-2",
-    assignedToId: "mock-user-2",
-    samGovId: "GS-35F-0001AA",
-    naicsCode: "541512",
-    setAsideType: "WOMAN_OWNED" as const,
-    contractType: "TIME_AND_MATERIALS" as const,
-    placeOfPerformance: "New York, NY",
-  },
-  {
-    id: "opp-3",
-    title: "Cloud Migration and Modernization Initiative",
-    description: "Large-scale cloud migration and modernization project for NASA's computing infrastructure.",
-    agency: "NASA",
-    contractVehicle: "SAM.gov",
-    solicitationNumber: "NNH24ZDA001N",
-    estimatedValueMin: 1000000,
-    estimatedValueMax: 5000000,
-    dueDate: new Date("2025-01-20"),
-    currentStageId: "stage-lead-gen",
-    stage: "LEAD" as const,
-    priority: "HIGH" as const,
-    probability: 40,
-    opportunityType: "BAA" as const,
-    technicalFocus: ["Cloud Computing", "DevOps", "System Integration"],
-    value: "5000000",
-    closeDate: "2025-01-20",
-    companyId: "mock-company-3",
-    assignedToId: "mock-user-3",
-    samGovId: "NNH24ZDA001N",
-    naicsCode: "541513",
-    setAsideType: "HUBZONE" as const,
-    contractType: "COST_PLUS" as const,
-    placeOfPerformance: "Houston, TX",
-  },
-]
+    {
+      id: "opp-1",
+      title: "AI-Powered Data Analytics Platform for Defense Intelligence",
+      description: "Development and implementation of an advanced data analytics platform using AI/ML technologies for defense intelligence applications.",
+      agency: "Department of Defense",
+      contractVehicle: "SAM.gov",
+      solicitationNumber: "W52P1J-24-R-0001",
+      estimatedValueMin: 500000,
+      estimatedValueMax: 2000000,
+      dueDate: new Date("2024-12-15"),
+      currentStageId: "stage-lead-gen",
+      priority: "HIGH" as const,
+      probability: 75,
+      opportunityType: "RFP" as const,
+      technicalFocus: ["AI/ML", "Data Analytics", "Cloud Computing"],
+      value: "2000000",
+      closeDate: "2024-12-15",
+      companyId: "mock-company-1",
+      assignedToId: "mock-user-1",
+      samGovId: "W52P1J-24-R-0001",
+      naicsCode: "541512",
+      setAsideType: "SMALL_BUSINESS" as const,
+      contractType: "FIXED_PRICE" as const,
+      placeOfPerformance: "Washington, DC",
+    },
+    {
+      id: "opp-2",
+      title: "Cybersecurity Assessment and Monitoring Services",
+      description: "Comprehensive cybersecurity assessment and continuous monitoring services for government systems.",
+      agency: "General Services Administration",
+      contractVehicle: "GSA Schedule",
+      solicitationNumber: "GS-35F-0001AA",
+      estimatedValueMin: 100000,
+      estimatedValueMax: 500000,
+      dueDate: new Date("2024-11-30"),
+      currentStageId: "stage-qualification",
+      priority: "MEDIUM" as const,
+      probability: 60,
+      opportunityType: "RFQ" as const,
+      technicalFocus: ["Cybersecurity", "Risk Assessment", "Compliance"],
+      value: "500000",
+      closeDate: "2024-11-30",
+      companyId: "mock-company-2",
+      assignedToId: "mock-user-2",
+      samGovId: "GS-35F-0001AA",
+      naicsCode: "541512",
+      setAsideType: "WOMAN_OWNED" as const,
+      contractType: "TIME_AND_MATERIALS" as const,
+      placeOfPerformance: "New York, NY",
+    },
+    {
+      id: "opp-3",
+      title: "Cloud Migration and Modernization Initiative",
+      description: "Large-scale cloud migration and modernization project for NASA's computing infrastructure.",
+      agency: "NASA",
+      contractVehicle: "SAM.gov",
+      solicitationNumber: "NNH24ZDA001N",
+      estimatedValueMin: 1000000,
+      estimatedValueMax: 5000000,
+      dueDate: new Date("2025-01-20"),
+      currentStageId: "stage-proposal",
+      priority: "HIGH" as const,
+      probability: 40,
+      opportunityType: "BAA" as const,
+      technicalFocus: ["Cloud Computing", "DevOps", "System Integration"],
+      value: "5000000",
+      closeDate: "2025-01-20",
+      companyId: "mock-company-3",
+      assignedToId: "mock-user-3",
+      samGovId: "NNH24ZDA001N",
+      naicsCode: "541513",
+      setAsideType: "HUBZONE" as const,
+      contractType: "COST_PLUS" as const,
+      placeOfPerformance: "Houston, TX",
+    }
+  ]
 
 export function KanbanBoard() {
   const [stages, setStages] = useState(mockStages)
@@ -171,23 +174,46 @@ export function KanbanBoard() {
     return closestCenter(args)
   }, [])
 
-  // Enhanced collision detection specifically for stages (horizontal reordering)
+  // Optimized collision detection specifically for stages (horizontal reordering)
   const stageCollisionDetection: CollisionDetection = useCallback((args) => {
-    // Try closest center first for horizontal reordering
-    const closest = closestCenter(args)
-    if (closest.length > 0) {
-      return closest
-    }
+    const { active, droppableRects, droppableContainers, collisionRect } = args
 
-    // Fallback to rect intersection for better horizontal detection
-    return rectIntersection(args)
+    // Only consider drop zones (not the drag overlay itself)
+    const filteredContainers = droppableContainers.filter(container => {
+      return !container.disabled && container.rect.current
+    })
+
+    const activeIdAsString = activeId as string
+
+    if (filteredContainers.length === 0) return []
+
+    // For horizontal stage reordering, prioritize left-right positioning
+    const existingCollisions = filteredContainers.map(container => {
+      const rect = container.rect.current
+      if (!rect) return null
+
+      const collisionAlgorithm = pointerWithin
+      const collisions = collisionAlgorithm({
+        ...args,
+        droppableContainers: [container]
+      })
+
+      return collisions.length > 0 ? {
+        id: container.id,
+        data: container.data,
+        rect,
+        score: (container.id as string).includes('stage-position-') ? 0.1 : 0 // Prioritize drop zones
+      } : null
+    }).filter(Boolean)
+
+    return existingCollisions as any
   }, [])
 
-  // Enhanced sensors with better touch support
+  // Optimized sensors for column drag and drop
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
-        distance: 8, // Increased for better UX on touch devices
+        distance: 15, // Increased for more deliberate column drag start
       },
     })
   )
@@ -204,7 +230,7 @@ export function KanbanBoard() {
     const rect = el.getBoundingClientRect()
     const edge = 100 // Larger edge area for easier scrolling
     const x = pointerX.current
-    const scrollSpeed = 25 // Slightly faster
+    const scrollSpeed = 8 // Reduced speed for better control
 
     let shouldScroll = false
     if (x < rect.left + edge) {
@@ -547,8 +573,8 @@ export function KanbanBoard() {
             estimatedValueMax: opp.estimatedValueMax || 0,
             dueDate: opp.dueDate ? new Date(opp.dueDate) : undefined,
             currentStageId: opp.currentStageId,
-            stage: "LEAD" as const, // This would need proper mapping
-            priority: (opp.priority || "MEDIUM") as const,
+            stage: "LEAD",
+            priority: (opp.priority || "MEDIUM"),
             probability: opp.probability || 0,
             opportunityType: (opp.opportunityType || "RFP") as const,
             technicalFocus: opp.technicalFocus || [],
@@ -614,7 +640,14 @@ export function KanbanBoard() {
     setIsModalOpen(false)
     setSelectedOpportunity(null)
     if (updated) {
-      setOpportunities((prev) => prev.map((o) => (o.id === updated.id ? updated : o)))
+      setOpportunities((prev) => {
+        const exists = prev.some((o) => o.id === updated.id)
+        if (exists) {
+          return prev.map((o) => (o.id === updated.id ? updated : o))
+        } else {
+          return [...prev, updated]
+        }
+      })
     }
   }, [])
 
@@ -894,11 +927,12 @@ export function KanbanBoard() {
           sensors={sensors}
           collisionDetection={(args) => {
             const { active } = args
-            const activeId = active.id as string
+            const activeId = (active.id as string)
 
             // Determine if we're dragging a stage or an opportunity
             if (activeId.includes('_stage')) {
-              return stageCollisionDetection(args)
+              // Use simple rect intersection for stage dragging
+              return rectIntersection(args)
             }
 
             return customCollisionDetection(args)
@@ -938,7 +972,7 @@ export function KanbanBoard() {
           }}
           modifiers={[restrictToWindowEdges]}
         >
-          <div ref={boardRef} className="kanban-columns h-full flex items-start gap-0 overflow-x-auto pb-4 px-6 md:px-8">
+          <div ref={boardRef} className="kanban-columns h-full flex items-start gap-6 md:gap-8 overflow-x-auto pb-4 px-6 md:px-8">
             {stages.map((stage, index) => (
               <div key={`stage-wrapper-${stage.id}`} className="flex items-start">
                 {/* Stage Drop Zone Before Each Column (including first) */}
@@ -946,20 +980,18 @@ export function KanbanBoard() {
                   <StageDropZone beforeIndex={index} />
                 )}
 
-                <div className={isStageDragging ? 'gap-0' : 'gap-6 md:gap-8'}>
-                  <KanbanColumn
-                    index={index}
-                    stage={stage}
-                    opportunities={getOpportunitiesForStage(stage.id)}
-                    onEdit={handleEdit}
-                    onDelete={handleDelete}
-                    onKeyboardMove={handleKeyboardMove}
-                    onEditStage={handleEditStage}
-                    onDeleteStage={handleDeleteStage}
-                    isDragging={isDragging}
-                    isStageDraggingActive={isStageDragging}
-                  />
-                </div>
+                <KanbanColumn
+                  index={index}
+                  stage={stage}
+                  opportunities={getOpportunitiesForStage(stage.id)}
+                  onEdit={handleEdit}
+                  onDelete={handleDelete}
+                  onKeyboardMove={handleKeyboardMove}
+                  onEditStage={handleEditStage}
+                  onDeleteStage={handleDeleteStage}
+                  isDragging={isDragging}
+                  isStageDraggingActive={isStageDragging}
+                />
               </div>
             ))}
 

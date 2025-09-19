@@ -212,22 +212,20 @@ export function OpportunityForm({ opportunity, companies, users, onSubmit, onCan
                 <DialogTrigger asChild>
                   <Button
                     type="button"
-                    className="h-10 w-10 px-2 border border-gray-300 bg-white rounded-lg hover:bg-blue-50 hover:border-blue-400 transition-colors"
+                    className="h-10 w-10 px-2 border border-gray-300 rounded-lg hover:bg-blue-50 hover:border-blue-400 transition-colors"
                     title="Add New Company"
                   >
                     <Plus className="h-4 w-4" />
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto" showCloseButton={false}>
-                  <DialogHeader>
+                <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto p-6" showCloseButton={false}>
+                  <DialogHeader className="pb-4">
                     <DialogTitle>Add New Company</DialogTitle>
                   </DialogHeader>
-                  <div className="mt-6">
-                    <CompanyForm
-                      onSubmit={handleCompanyCreated}
-                      onCancel={() => setIsCompanyModalOpen(false)}
-                    />
-                  </div>
+                  <CompanyForm
+                    onSubmit={handleCompanyCreated}
+                    onCancel={() => setIsCompanyModalOpen(false)}
+                  />
                 </DialogContent>
               </Dialog>
             </div>
