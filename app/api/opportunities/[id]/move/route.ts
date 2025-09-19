@@ -10,27 +10,46 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { stage } = await request.json()
+    const { stage, index } = await request.json()
+
+    // Find the stage by ID or name to get the stage object
+    const stageRecord = await db.stage.findFirst({
+      where: {
+        OR: [
+          { id: stage },
+          { name: stage }
+        ]
+      }
+    })
+
+    if (!stageRecord) {
+      return NextResponse.json({ error: "Stage not found" }, { status: 404 })
+    }
 
     const opportunity = await db.opportunity.update({
       where: { id: params.id },
       data: {
-        stage,
+        currentStageId: stageRecord.id,
         updatedAt: new Date(),
       },
       include: {
-        company: true,
         assignedTo: true,
+        currentStage: true,
       },
     })
 
-    // Create activity log for stage change
-    await db.activity.create({
+    // Find the user to get their ID for stage history
+    const user = await db.user.findFirst({
+      where: { email: session.user.email },
+      select: { id: true }
+    })
+
+    // Create stage history entry instead of activity
+    await db.stageHistory.create({
       data: {
-        type: "STAGE_CHANGE",
-        description: `Opportunity moved to ${stage}`,
         opportunityId: params.id,
-        userId: session.user.id,
+        toStage: stageRecord.name,
+        movedBy: user?.id,
       },
     })
 

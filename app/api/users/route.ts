@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 import { type NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
@@ -20,8 +22,8 @@ export async function GET(request: NextRequest) {
         createdAt: true,
         _count: {
           select: {
-            assignedOpportunities: true,
-            activities: true,
+            opportunities: true,
+            comments: true,
           },
         },
       },

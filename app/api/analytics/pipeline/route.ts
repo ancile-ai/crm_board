@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 import { type NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
@@ -18,9 +20,12 @@ export async function GET(request: NextRequest) {
 
     // Pipeline metrics by stage
     const pipelineData = await db.opportunity.groupBy({
-      by: ["stage"],
+      by: ["currentStageId"],
       _count: { _all: true },
-      _sum: { value: true },
+      _sum: {
+        estimatedValueMin: true,
+        estimatedValueMax: true,
+      },
       where: {
         createdAt: { gte: startDate },
       },
@@ -33,13 +38,15 @@ export async function GET(request: NextRequest) {
 
     const wonOpportunities = await db.opportunity.count({
       where: {
-        stage: "WON",
+        currentStage: {
+          name: "WON"
+        },
         createdAt: { gte: startDate },
       },
     })
 
-    // Recent activities
-    const recentActivities = await db.activity.findMany({
+    // Recent comments as activities
+    const recentActivities = await db.comment.findMany({
       where: { createdAt: { gte: startDate } },
       include: {
         user: true,
@@ -55,17 +62,21 @@ export async function GET(request: NextRequest) {
     const topPerformers = await db.opportunity.groupBy({
       by: ["assignedToId"],
       _count: { _all: true },
-      _sum: { value: true },
+      _sum: {
+        estimatedValueMax: true,
+      },
       where: {
-        stage: "WON",
+        currentStage: {
+          name: "WON"
+        },
         createdAt: { gte: startDate },
       },
-      orderBy: { _sum: { value: "desc" } },
+      orderBy: { _sum: { estimatedValueMax: "desc" } },
       take: 5,
     })
 
     // Get user details for top performers
-    const userIds = topPerformers.map((p) => p.assignedToId).filter(Boolean)
+    const userIds = topPerformers.map((p) => p.assignedToId).filter(Boolean) as string[]
     const users = await db.user.findMany({
       where: { id: { in: userIds } },
       select: { id: true, name: true, email: true },
@@ -82,7 +93,7 @@ export async function GET(request: NextRequest) {
         totalOpportunities,
         wonOpportunities,
         conversionRate: totalOpportunities > 0 ? (wonOpportunities / totalOpportunities) * 100 : 0,
-        totalValue: pipelineData.reduce((sum, stage) => sum + (stage._sum.value || 0), 0),
+        totalValue: pipelineData.reduce((sum, stage) => sum + (stage._sum.estimatedValueMax || 0), 0),
       },
       recentActivities,
       topPerformers: topPerformersWithUsers,
