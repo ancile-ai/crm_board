@@ -10,7 +10,7 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { stage, index } = await request.json()
+    const { stage, index, oldStageId } = await request.json()
 
     // Find the stage by ID or name to get the stage object
     const stageRecord = await db.stage.findFirst({
@@ -26,6 +26,7 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
       return NextResponse.json({ error: "Stage not found" }, { status: 404 })
     }
 
+    // Update the opportunity's stage
     const opportunity = await db.opportunity.update({
       where: { id: params.id },
       data: {
@@ -38,13 +39,27 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
       },
     })
 
+    // Handle ordering within the stage if index and oldStageId are provided
+    if (typeof index === 'number') {
+      // If moving within the same stage, reorder other opportunities
+      if (oldStageId && oldStageId !== stageRecord.id) {
+        // Moving to different stage - we'll handle this on the frontend
+        // as the client has the most current state
+      } else if (oldStageId === stageRecord.id || !oldStageId) {
+        // Reordering within same stage - update all opportunities in the stage
+        // This would require more complex logic to reorder by index in the database
+        // For now, we'll let the client manage ordering since Kanban boards
+        // typically don't persist order in the database
+      }
+    }
+
     // Find the user to get their ID for stage history
     const user = await db.user.findFirst({
       where: { email: session.user.email },
       select: { id: true }
     })
 
-    // Create stage history entry instead of activity
+    // Create stage history entry
     await db.stageHistory.create({
       data: {
         opportunityId: params.id,

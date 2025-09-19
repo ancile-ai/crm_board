@@ -1,6 +1,6 @@
 "use client"
 
-import { memo, useMemo } from "react"
+import { memo, useState, useEffect } from "react"
 import { useDroppable } from "@dnd-kit/core"
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable"
 import { Plus, MoreVertical, Edit, Trash2 } from "lucide-react"
@@ -40,9 +40,10 @@ interface KanbanColumnProps {
   onKeyboardMove?: (opportunityId: string, direction: 'up' | 'down' | 'left' | 'right') => void
   onEditStage?: (stageId: string) => void
   onDeleteStage?: (stageId: string) => void
+  isDragging: boolean
 }
 
-export function KanbanColumn({ stage, opportunities, onEdit, onDelete, onKeyboardMove, onEditStage, onDeleteStage }: KanbanColumnProps) {
+export function KanbanColumn({ stage, opportunities, onEdit, onDelete, onKeyboardMove, onEditStage, onDeleteStage, isDragging }: KanbanColumnProps) {
   const { setNodeRef, isOver } = useDroppable({
     id: stage.id,
   })
@@ -59,6 +60,8 @@ export function KanbanColumn({ stage, opportunities, onEdit, onDelete, onKeyboar
       maximumFractionDigits: 0,
     }).format(amount)
   }
+
+
 
   return (
     <div className="flex-shrink-0 min-w-[24rem] w-96 md:w-[28rem] group">
@@ -84,6 +87,10 @@ export function KanbanColumn({ stage, opportunities, onEdit, onDelete, onKeyboar
                       variant="ghost"
                       size="sm"
                       className="h-8 w-8 p-0 text-slate-500 hover:text-slate-700 hover:bg-slate-100"
+                      disabled={isDragging}
+                      tabIndex={0}
+                      aria-label="Stage options"
+                      style={{ pointerEvents: isDragging ? 'none' : 'auto' }}
                     >
                       <MoreVertical className="h-4 w-4" />
                       <span className="sr-only">Stage options</span>
@@ -168,6 +175,7 @@ export function KanbanColumn({ stage, opportunities, onEdit, onDelete, onKeyboar
                   onEdit={onEdit}
                   onDelete={onDelete}
                   onKeyboardMove={onKeyboardMove}
+                  isDragging={isDragging}
                 />
               ))}
             </div>
