@@ -10,8 +10,8 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { CalendarIcon, DollarSign, Building2, User, FileText, Target, Briefcase, MapPin, Plus } from "lucide-react"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { CompanyForm } from "@/components/forms/company-form"
+import { SearchableCompanySelect } from "@/components/forms/searchable-company-select"
 
 interface Company {
   id: string
@@ -54,7 +54,6 @@ export function OpportunityForm({ opportunity, companies, users, onSubmit, onCan
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
-  const [isCompanyModalOpen, setIsCompanyModalOpen] = useState(false)
   const [localCompanies, setLocalCompanies] = useState(companies)
   const [formData, setFormData] = useState({
     title: opportunity?.title || "",
@@ -91,8 +90,6 @@ export function OpportunityForm({ opportunity, companies, users, onSubmit, onCan
     setLocalCompanies((prev) => [...prev, newCompany])
     // Set the newly created company as selected
     setFormData((prev) => ({ ...prev, companyId: newCompany.id }))
-    // Close the modal
-    setIsCompanyModalOpen(false)
   }
 
   const validateForm = () => {
@@ -102,6 +99,9 @@ export function OpportunityForm({ opportunity, companies, users, onSubmit, onCan
     }
     if (formData.title.length > 200) {
       newErrors.title = "Title must be less than 200 characters"
+    }
+    if (!formData.companyId) {
+      newErrors.companyId = "Company is required"
     }
     if (formData.description.length > 1000) {
       newErrors.description = "Description must be less than 1000 characters"
@@ -187,67 +187,20 @@ export function OpportunityForm({ opportunity, companies, users, onSubmit, onCan
           </div>
         </div>
 
-        {/* Company & Assignment Section */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="space-y-2">
-            <Label htmlFor="companyId" className="text-base font-semibold text-gray-900">
-              Company <span className="text-sm font-normal text-gray-500">(Optional)</span>
-            </Label>
-            <div className="flex gap-2">
-              <div className="flex-1">
-                <Select value={formData.companyId} onValueChange={(value) => handleChange("companyId", value)}>
-                  <SelectTrigger className="w-full h-10 px-3 text-base border-gray-300 rounded-lg transition-shadow focus:shadow-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white">
-                    <SelectValue placeholder="Select a company" />
-                  </SelectTrigger>
-                  <SelectContent className="min-w-[200px]">
-                    {localCompanies.map((company) => (
-                      <SelectItem key={company.id} value={company.id} className="py-2 text-base">
-                        {company.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <Dialog open={isCompanyModalOpen} onOpenChange={setIsCompanyModalOpen}>
-                <DialogTrigger asChild>
-                  <Button
-                    type="button"
-                    className="h-10 w-10 px-2 border border-gray-300 rounded-lg hover:bg-blue-50 hover:border-blue-400 transition-colors"
-                    title="Add New Company"
-                  >
-                    <Plus className="h-4 w-4" />
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto p-6" showCloseButton={false}>
-                  <DialogHeader className="pb-4">
-                    <DialogTitle>Add New Company</DialogTitle>
-                  </DialogHeader>
-                  <CompanyForm
-                    onSubmit={handleCompanyCreated}
-                    onCancel={() => setIsCompanyModalOpen(false)}
-                  />
-                </DialogContent>
-              </Dialog>
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="assignedToId" className="text-base font-semibold text-gray-900">
-              Assigned To <span className="text-sm font-normal text-gray-500">(Optional)</span>
-            </Label>
-            <Select value={formData.assignedToId} onValueChange={(value) => handleChange("assignedToId", value)}>
-              <SelectTrigger className="w-full h-10 px-3 text-base border-gray-300 rounded-lg transition-shadow focus:shadow-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white">
-                <SelectValue placeholder="Select assignee" />
-              </SelectTrigger>
-              <SelectContent>
-                {users.map((user) => (
-                  <SelectItem key={user.id} value={user.id} className="py-2 text-base">
-                    {user.name || user.email}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+        {/* Company Section */}
+        <div className="space-y-2">
+          <Label htmlFor="companyId" className="text-base font-semibold text-gray-900">
+            Company <span className="text-red-500">*</span>
+          </Label>
+          <SearchableCompanySelect
+            value={formData.companyId}
+            companies={localCompanies}
+            onValueChange={(value) => handleChange("companyId", value)}
+            onCompanyCreated={handleCompanyCreated}
+            placeholder="Select a company"
+            className={errors.companyId ? 'border-red-300' : ''}
+          />
+          {errors.companyId && <p className="text-sm text-red-600 font-medium">{errors.companyId}</p>}
         </div>
 
         {/* Status Section */}
@@ -290,14 +243,14 @@ export function OpportunityForm({ opportunity, companies, users, onSubmit, onCan
 
           <div className="space-y-2">
             <Label htmlFor="closeDate" className="text-base font-semibold text-gray-900">
-              Close Date <span className="text-sm font-normal text-gray-500">(Optional)</span>
+              Close Date <span className="text-sm font-normal text-gray-500"></span>
             </Label>
             <Input
               id="closeDate"
               type="date"
               value={formData.closeDate}
               onChange={(e) => handleChange("closeDate", e.target.value)}
-              className="w-full h-10 px-3 py-2 text-base border border-gray-300 rounded-lg transition-shadow hover:shadow-md focus:shadow-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+              className="w-full h-10 px-3 pr-4 py-2 text-base border border-gray-300 rounded-lg transition-shadow hover:shadow-md focus:shadow-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
             />
           </div>
         </div>
@@ -405,33 +358,53 @@ export function OpportunityForm({ opportunity, companies, users, onSubmit, onCan
           </div>
         </details>
 
-        {/* Action Buttons */}
-        <div className="flex flex-col sm:flex-row justify-end gap-4 pt-6 border-t border-gray-100">
-          {!hideCancelButton && (
-            <Button
-              type="button"
-              variant="outline"
-              onClick={onCancel || (() => router.back())}
-              disabled={loading}
-              className="sm:w-auto px-6 py-2 border-gray-300 hover:bg-gray-50 hover:border-blue-400 transition-colors"
-            >
-              Cancel
-            </Button>
-          )}
-          <Button
-            type="submit"
-            disabled={loading}
-            className="sm:w-auto px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white shadow-md hover:shadow-lg transition-all"
-          >
-            {loading ? (
-              <>
-                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full mr-2 animate-spin inline-block"></div>
-                Saving...
-              </>
-            ) : (
-              opportunity ? "Update Opportunity" : "Create Opportunity"
+        {/* Assigned To and Action Buttons */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 pt-6 border-t border-gray-100">
+          <div className="space-y-2">
+            <Label htmlFor="assignedToId" className="text-base font-semibold text-gray-900">
+              Assigned To <span className="text-sm font-normal text-gray-500">(Optional)</span>
+            </Label>
+            <Select value={formData.assignedToId} onValueChange={(value) => handleChange("assignedToId", value)}>
+              <SelectTrigger className="w-full h-10 px-3 text-base border-gray-300 rounded-lg transition-shadow focus:shadow-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white">
+                <SelectValue placeholder="Select assignee" />
+              </SelectTrigger>
+              <SelectContent>
+                {users.map((user) => (
+                  <SelectItem key={user.id} value={user.id} className="py-2 text-base">
+                    {user.name || user.email}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="flex flex-col sm:flex-row justify-end gap-4 sm:items-end">
+            {!hideCancelButton && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={onCancel || (() => router.back())}
+                disabled={loading}
+                className="sm:w-auto px-6 py-2 border-gray-300 hover:bg-gray-50 hover:border-blue-400 transition-colors"
+              >
+                Cancel
+              </Button>
             )}
-          </Button>
+            <Button
+              type="submit"
+              disabled={loading}
+              className="sm:w-auto px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white shadow-md hover:shadow-lg transition-all"
+            >
+              {loading ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full mr-2 animate-spin inline-block"></div>
+                  Saving...
+                </>
+              ) : (
+                opportunity ? "Update Opportunity" : "Create Opportunity"
+              )}
+            </Button>
+          </div>
         </div>
       </form>
     </div>
