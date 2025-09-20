@@ -108,6 +108,46 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
+    // Get opportunity data before deletion for logging
+    const opportunity = await db.opportunity.findUnique({
+      where: { id: params.id },
+      include: {
+        assignedTo: true,
+        company: true,
+        currentStage: true,
+      }
+    })
+
+    if (!opportunity) {
+      return NextResponse.json({ error: "Opportunity not found" }, { status: 404 })
+    }
+
+    // Get user ID for logging
+    const user = await db.user.findUnique({
+      where: { email: session.user.email! },
+      select: { id: true }
+    })
+
+    if (user) {
+      // Log the deletion activity
+      await (db as any).activityLog.create({
+        data: {
+          type: "OPPORTUNITY_DELETED",
+          entityType: "opportunity",
+          entityId: opportunity.id,
+          entityData: {
+            title: opportunity.title,
+            agency: opportunity.agency,
+            value: opportunity.estimatedValueMax,
+            stage: opportunity.currentStage?.name,
+            priority: opportunity.priority,
+          },
+          userId: user.id,
+        }
+      })
+    }
+
+    // Delete the opportunity
     await db.opportunity.delete({
       where: { id: params.id },
     })

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { KanbanBoard } from "@/components/kanban/kanban-board";
 import { DashboardHeader } from "@/components/dashboard/dashboard-header";
+import { RecentActivities } from "@/components/dashboard/recent-activities";
 
 export default function DashboardPage() {
   const { data: session, status } = useSession();
@@ -45,13 +46,12 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="min-h-screen bg-background grid grid-rows-[auto_1fr] relative">
       <DashboardHeader user={session.user} />
-      <main className="flex-1 w-full flex flex-col">
-        <div className="w-full flex-1">
-          <KanbanBoard />
-        </div>
+      <main className="w-full min-h-0 overflow-hidden">
+        <KanbanBoard />
       </main>
+      <RecentActivities />
     </div>
   );
 }

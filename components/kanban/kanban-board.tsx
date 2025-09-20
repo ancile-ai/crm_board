@@ -949,7 +949,7 @@ export function KanbanBoard() {
   }).format(totalValue)
 
   return (
-    <div className={`w-full min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/20 flex flex-col relative overflow-hidden transition-all duration-200 ${isDragging ? 'drag-active' : ''}`}>
+    <div className={`w-full min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/20 flex flex-col relative overflow-hidden transition-all duration-200 ${isDragging ? 'drag-active' : ''}`} style={{ zIndex: 1 }}>
       {/* Enhanced decorative background */}
       <div className="absolute top-0 right-0 w-72 h-72 bg-gradient-to-br from-blue-400/8 to-purple-400/8 rounded-full blur-3xl -translate-y-36 translate-x-36 bg-decoration-float"></div>
       <div className="absolute bottom-0 left-0 w-96 h-96 bg-gradient-to-tr from-emerald-400/6 to-teal-400/6 rounded-full blur-3xl translate-y-48 -translate-x-48 bg-decoration-float" style={{animationDelay: '3s'}}></div>

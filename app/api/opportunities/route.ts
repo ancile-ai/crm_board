@@ -76,6 +76,18 @@ export async function POST(request: NextRequest) {
 
     const defaultStageId = defaultPipeline.stages[0].id
 
+    // Get user ID from email if assignedToId not provided
+    let finalAssignedToId = assignedToId;
+    if (!assignedToId) {
+      const user = await db.user.findUnique({
+        where: { email: session.user.email! },
+        select: { id: true }
+      });
+      if (user) {
+        finalAssignedToId = user.id;
+      }
+    }
+
     // Get company information if provided
     let agency = "Unknown Agency"
     if (companyId) {
@@ -100,6 +112,7 @@ export async function POST(request: NextRequest) {
         dueDate: closeDate ? new Date(closeDate) : null,
         currentStageId: defaultStageId,
         companyId: companyId || null,
+        assignedToId: finalAssignedToId,
         naicsCodes: naicsCode ? [naicsCode] : [],
         setAsideType: setAsideType as any,
         opportunityType: contractType === "NO_CONTRACT_TYPE" ? "RFP" : (contractType as any) || "RFP",

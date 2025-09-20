@@ -95,7 +95,7 @@ export async function DELETE(
     // Check if comment exists and user can delete it
     const comment = await db.comment.findUnique({
       where: { id: commentId },
-      select: { id: true, userId: true, opportunityId: true }
+      include: { opportunity: true }
     })
 
     if (!comment) {
@@ -110,6 +110,21 @@ export async function DELETE(
     if (comment.userId !== user.id) {
       return NextResponse.json({ error: 'You can only delete your own comments' }, { status: 403 })
     }
+
+    // Log the deletion activity before deleting
+    await (db as any).activityLog.create({
+      data: {
+        type: "COMMENT_DELETED",
+        entityType: "comment",
+        entityId: comment.id,
+        entityData: {
+          content: comment.content,
+          opportunityTitle: comment.opportunity.title,
+          opportunityAgency: comment.opportunity.agency,
+        },
+        userId: user.id,
+      }
+    })
 
     await db.comment.delete({
       where: { id: commentId }
