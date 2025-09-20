@@ -10,8 +10,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Get the default pipeline's stages
-    const pipeline = await db.pipeline.findFirst({
+    // Get the first pipeline's stages (fallback to any pipeline if no default)
+    let pipeline = await db.pipeline.findFirst({
       where: { isDefault: true },
       include: {
         stages: {
@@ -20,8 +20,19 @@ export async function GET(request: NextRequest) {
       }
     })
 
+    // If no default pipeline, get any pipeline
     if (!pipeline) {
-      return NextResponse.json({ error: "Default pipeline not found" }, { status: 404 })
+      pipeline = await db.pipeline.findFirst({
+        include: {
+          stages: {
+            orderBy: { order: 'asc' }
+          }
+        }
+      })
+    }
+
+    if (!pipeline) {
+      return NextResponse.json({ error: "No pipeline found" }, { status: 404 })
     }
 
     return NextResponse.json(pipeline.stages)

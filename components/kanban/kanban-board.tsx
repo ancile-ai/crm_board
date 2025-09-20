@@ -564,28 +564,55 @@ export function KanbanBoard() {
     const loadData = async () => {
       setLoading(true)
       try {
+        console.log("[KANBAN] Starting data load...")
+
         // Load stages from API (session will be automatically forwarded)
         const stagesResponse = await fetch('/api/stages')
+        console.log("[KANBAN] Stages response status:", stagesResponse.status)
+
         if (stagesResponse.ok) {
           const pipelineStages = await stagesResponse.json()
+          console.log("[KANBAN] Raw stages data:", pipelineStages)
+
           if (pipelineStages.length > 0) {
-            setStages(pipelineStages.map((stage: any) => ({
+            const formattedStages = pipelineStages.map((stage: any) => ({
               id: stage.id,
               name: stage.name,
-              color: stage.color,
-              order: stage.order
-            })))
+              color: stage.color || '#6b7280', // Default color if missing
+              order: stage.order || 0
+            }))
+            console.log("[KANBAN] Formatted stages:", formattedStages)
+            setStages(formattedStages)
+          } else {
+            console.warn("[KANBAN] No stages returned from API")
+            // Set default stages if none exist
+            const defaultStages = [
+              { id: 'default-1', name: 'Lead Generation', color: '#3b82f6', order: 1 },
+              { id: 'default-2', name: 'Qualification', color: '#f59e0b', order: 2 },
+              { id: 'default-3', name: 'Proposal Development', color: '#8b5cf6', order: 3 },
+              { id: 'default-4', name: 'Submitted/Under Review', color: '#06b6d4', order: 4 },
+              { id: 'default-5', name: 'Won/Lost/Closed', color: '#10b981', order: 5 }
+            ]
+            setStages(defaultStages)
           }
+        } else {
+          console.error("[KANBAN] Failed to load stages:", stagesResponse.status)
+          const errorText = await stagesResponse.text()
+          console.error("[KANBAN] Error response:", errorText)
         }
 
         // Load opportunities from API (session will be automatically forwarded)
         const opportunitiesResponse = await fetch('/api/opportunities')
+        console.log("[KANBAN] Opportunities response status:", opportunitiesResponse.status)
+
         if (opportunitiesResponse.ok) {
           const pipelineOpportunities = await opportunitiesResponse.json()
-          setOpportunities(pipelineOpportunities.map((opp: any) => ({
+          console.log("[KANBAN] Raw opportunities data:", pipelineOpportunities)
+
+          const formattedOpportunities = pipelineOpportunities.map((opp: any) => ({
             id: opp.id,
             title: opp.title,
-            description: opp.description || "",
+            description: opp.description || opp.keyRequirements || "",
             agency: opp.agency || "",
             contractVehicle: opp.contractVehicle || "",
             solicitationNumber: opp.solicitationNumber || "",
@@ -607,8 +634,12 @@ export function KanbanBoard() {
             setAsideType: opp.setAsideType,
             contractType: opp.contractType,
             placeOfPerformance: opp.placeOfPerformance || "",
-            opportunityUrl: opp.opportunityUrl || "", // Add missing field
-          })))
+            opportunityUrl: opp.opportunityUrl || "",
+          }))
+          console.log("[KANBAN] Formatted opportunities:", formattedOpportunities)
+          setOpportunities(formattedOpportunities)
+        } else {
+          console.error("[KANBAN] Failed to load opportunities:", opportunitiesResponse.status)
         }
       } catch (error) {
         console.error("[KANBAN] Error loading data:", error)
