@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useRef, useEffect, useCallback } from "react"
+import { useSession } from "next-auth/react"
 import { DndContext, DragEndEvent, DragStartEvent, DragOverlay, UniqueIdentifier, PointerSensor, useSensor, useSensors, closestCenter, pointerWithin, rectIntersection, CollisionDetection, useDroppable } from "@dnd-kit/core"
 import { arrayMove } from "@dnd-kit/sortable"
 import { restrictToWindowEdges } from "@dnd-kit/modifiers"
@@ -50,6 +51,7 @@ function StageDropZone({ beforeIndex }: { beforeIndex: number }) {
 }
 
 export function KanbanBoard() {
+  const { data: session } = useSession()
   const [stages, setStages] = useState<any[]>([])
   const [opportunities, setOpportunities] = useState<any[]>([])
   const [selectedOpportunity, setSelectedOpportunity] = useState<any | null>(null)
@@ -562,7 +564,7 @@ export function KanbanBoard() {
     const loadData = async () => {
       setLoading(true)
       try {
-        // Load stages from API
+        // Load stages from API (session will be automatically forwarded)
         const stagesResponse = await fetch('/api/stages')
         if (stagesResponse.ok) {
           const pipelineStages = await stagesResponse.json()
@@ -576,7 +578,7 @@ export function KanbanBoard() {
           }
         }
 
-        // Load opportunities from API
+        // Load opportunities from API (session will be automatically forwarded)
         const opportunitiesResponse = await fetch('/api/opportunities')
         if (opportunitiesResponse.ok) {
           const pipelineOpportunities = await opportunitiesResponse.json()
@@ -620,8 +622,10 @@ export function KanbanBoard() {
       }
     }
 
-    loadData()
-  }, [])
+    if (session) {
+      loadData()
+    }
+  }, [session])
 
   // Enhanced modal handlers
   const handleEdit = useCallback((opportunityId: string) => {

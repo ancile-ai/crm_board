@@ -28,5 +28,6 @@ export const config = {
     "/api/opportunities/:path*",
     "/api/stages/:path*",
     "/api/analytics/:path*",
+    "/api/pipelines/:path*",
   ],
 }
