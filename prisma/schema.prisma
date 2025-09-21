@@ -187,7 +187,7 @@ enum ActivityType {
 
 model Company {
   id            String        @id @default(cuid())
-  name          String
+  name          String        @unique
   industry      String?
   website       String?
   phone         String?

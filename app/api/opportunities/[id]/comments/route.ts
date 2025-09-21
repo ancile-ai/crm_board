@@ -52,60 +52,37 @@ export async function POST(
   const opportunityId = params.id
 
   try {
-    console.log(`[COMMENTS-DEBUG] POST request to /api/opportunities/${opportunityId}/comments`)
-
     const session = await getServerSession(authOptions)
-    console.log(`[COMMENTS-DEBUG] Session check:`, {
-      exists: !!session,
-      email: session?.user?.email,
-      isAncile: session?.user?.email?.endsWith('@ancile.io')
-    })
-
     if (!session?.user?.email?.endsWith('@ancile.io')) {
-      console.log(`[COMMENTS-DEBUG] Failed authentication - not ancile.io domain`)
       return NextResponse.json({ error: 'Unauthorized - not ancile.io domain' }, { status: 401 })
     }
 
-    console.log(`[COMMENTS-DEBUG] Authentication passed`)
-
     const body = await request.json()
     const { content } = body
-    console.log(`[COMMENTS-DEBUG] Request body parsed:`, { contentLength: content?.length })
-
     if (!content || typeof content !== 'string' || content.trim().length === 0) {
-      console.log(`[COMMENTS-DEBUG] Content validation failed`)
       return NextResponse.json({ error: 'Content is required' }, { status: 400 })
     }
 
     // Verify the opportunity exists
-    console.log(`[COMMENTS-DEBUG] Checking if opportunity exists: ${opportunityId}`)
     const opportunity = await db.opportunity.findUnique({
       where: { id: opportunityId },
       select: { id: true, title: true }
     })
 
-    console.log(`[COMMENTS-DEBUG] Opportunity lookup result:`, opportunity ? `Found: ${opportunity.title}` : 'Not found')
-
     if (!opportunity) {
-      console.log(`[COMMENTS-DEBUG] Opportunity not found, returning 404`)
       return NextResponse.json({ error: 'Opportunity not found' }, { status: 404 })
     }
 
     // Get user ID from email
-    console.log(`[COMMENTS-DEBUG] Looking up user: ${session.user.email}`)
     const user = await db.user.findUnique({
       where: { email: session.user.email! },
       select: { id: true, email: true }
     })
 
-    console.log(`[COMMENTS-DEBUG] User lookup result:`, user ? `Found user: ${user.email}` : 'User not found')
-
     if (!user) {
-      console.log(`[COMMENTS-DEBUG] User not found, returning 404`)
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 
-    console.log(`[COMMENTS-DEBUG] Creating comment...`)
     const comment = await db.comment.create({
       data: {
         content: content.trim(),
@@ -117,7 +94,6 @@ export async function POST(
       }
     })
 
-    console.log(`[COMMENTS-DEBUG] Comment created successfully, ID: ${comment.id}`)
     return NextResponse.json(comment, { status: 201 })
   } catch (error) {
     console.error(`[COMMENTS-DEBUG] Error creating comment for opportunity ${opportunityId}:`, error)

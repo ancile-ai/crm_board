@@ -2,19 +2,19 @@
 
 import { useState, useRef, useEffect, useCallback } from "react"
 import { useSession } from "next-auth/react"
-import { DndContext, DragEndEvent, DragStartEvent, DragOverlay, UniqueIdentifier, PointerSensor, useSensor, useSensors, closestCenter, pointerWithin, rectIntersection, CollisionDetection, useDroppable } from "@dnd-kit/core"
+import { DndContext, DragEndEvent, DragStartEvent, DragOverlay, PointerSensor, useSensor, useSensors, rectIntersection, CollisionDetection, useDroppable, closestCenter, pointerWithin, UniqueIdentifier } from "@dnd-kit/core"
 import { arrayMove } from "@dnd-kit/sortable"
 import { restrictToWindowEdges } from "@dnd-kit/modifiers"
 import KanbanColumn from "./kanban-column"
 import { AddOpportunityModal } from "@/components/modals/add-opportunity-modal"
 import { EditOpportunityModal } from "@/components/modals/edit-opportunity-modal"
 import { Button } from "@/components/ui/button"
-import { Plus } from "lucide-react"
+import { Plus, Loader2 } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
 import { toast } from "@/hooks/use-toast"
+import { CheckCircle } from "lucide-react"
 
 // Kanban Board Component
 
@@ -68,6 +68,13 @@ export function KanbanBoard() {
   const [activeStage, setActiveStage] = useState<any>(null)
   const [isStageDragging, setIsStageDragging] = useState(false)
   const [loading, setLoading] = useState(false)
+
+  // URL paste functionality state
+  const [urlInput, setUrlInput] = useState("")
+  const [urlLoading, setUrlLoading] = useState(false)
+  const [showUrlDialog, setShowUrlDialog] = useState(false)
+  const [fetchedOpportunity, setFetchedOpportunity] = useState<any>(null)
+  const [modalInitialData, setModalInitialData] = useState<any>(null)
 
   const boardRef = useRef<HTMLDivElement | null>(null)
   const scrollRafRef = useRef<number | null>(null)
@@ -940,6 +947,146 @@ export function KanbanBoard() {
     setStageFormData({ name: '', color: '#3b82f6' })
   }, [])
 
+  // URL paste functionality handlers
+  const parseUrlAndFetchOpportunity = async () => {
+    console.error("🚀 [URL] Starting parseUrlAndFetchOpportunity")
+    setUrlLoading(true)
+    setFetchedOpportunity(null)
+
+    try {
+      // Extract noticeId from URL
+      const url = urlInput.trim()
+      console.error("📋 [URL] Input URL:", url)
+
+      if (!url) {
+        throw new Error("Please enter a SAM.gov opportunity URL")
+      }
+
+      // More permissive validation - just check for sam.gov domain and opp/ path
+      if (!url.includes('sam.gov')) {
+        throw new Error("Invalid SAM.gov opportunity URL. URL must contain 'sam.gov'")
+      }
+
+      if (!url.includes('/opp/')) {
+        throw new Error("Invalid SAM.gov opportunity URL. URL must contain '/opp/' followed by the notice ID")
+      }
+
+      const match = url.match(/\/opp\/([^\/\?]+)/)
+      console.error("🔍 [URL] URL match result:", match)
+
+      if (!match) {
+        throw new Error("Invalid SAM.gov opportunity URL. URL should contain '/opp/' followed by the notice ID")
+      }
+
+      const noticeId = match[1]
+      console.error("✅ [URL] Extracted noticeId:", noticeId)
+
+      // Fetch opportunity from API
+      console.error("🌐 [URL] Making API call to /api/sam-gov/fetch")
+      const response = await fetch("/api/sam-gov/fetch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ noticeId }),
+      })
+
+      console.error("📡 [URL] API response status:", response.status)
+      console.error("📡 [URL] Response ok:", response.ok)
+
+      if (response.ok) {
+        const data = await response.json()
+        console.error("📄 [URL] API success, data:", JSON.stringify(data, null, 2))
+        console.error("🎉 [URL] Calling handleUrlDialogSuccess...")
+        setFetchedOpportunity(data)
+        handleUrlDialogSuccess(data)
+        console.error("✅ [URL] handleUrlDialogSuccess called successfully")
+      } else {
+        const errorData = await response.json().catch(() => ({}))
+        console.error("❌ [URL] API error response:", { status: response.status, error: errorData })
+
+        // Handle SAM.gov scraping errors specifically
+        if (response.status === 422 && errorData.error?.includes("SAM.gov scraping failed")) {
+          throw new Error(`Unable to automatically scrape SAM.gov data. Please visit ${errorData.opportunityUrl} to view the opportunity and enter the details manually.`)
+        }
+
+        const errorText = errorData.error || errorData.details || 'Failed to fetch opportunity'
+        throw new Error(errorText)
+      }
+    } catch (error: any) {
+      console.error("💥 [URL] Error in parseUrlAndFetchOpportunity:", error)
+      console.error("💥 [URL] Error message:", error.message)
+      toast({
+        title: "Error fetching opportunity",
+        description: error.message || "Failed to fetch opportunity. Please check the URL.",
+        variant: "destructive",
+      })
+      // Keep the dialog open so user can see there's an issue
+    } finally {
+      console.error("🏁 [URL] parseUrlAndFetchOpportunity finished")
+      setUrlLoading(false)
+    }
+  }
+
+  const mapSamGovOpportunityToForm = (samOpp: any) => {
+    // Parse contract value
+    let value = ""
+    if (samOpp.award?.amount) {
+      const amountStr = samOpp.award.amount.replace(/[$,]/g, "")
+      const parsedAmount = Number.parseFloat(amountStr)
+      if (!isNaN(parsedAmount)) {
+        value = parsedAmount.toString()
+      }
+    }
+
+    // Map set-aside type
+    const setAsideMapping = {
+      SBA: "SMALL_BUSINESS",
+      WOSB: "WOSB",
+      VOSB: "VOSB",
+      SDVOSB: "SDVOSB",
+      HUBZONE: "HUBZONE",
+      "8A": "EIGHT_A",
+    } as const
+
+    const setAsideType = setAsideMapping[samOpp.typeOfSetAside as keyof typeof setAsideMapping] || undefined
+
+    return {
+      title: samOpp.title || "",
+      description: samOpp.description || "",
+      companyId: samOpp.companyId || "", // Use the companyId from scraped data
+      samGovId: samOpp.noticeId,
+      opportunityUrl: `https://sam.gov/workspace/contract/opp/${samOpp.noticeId}/view`,
+      naicsCode: samOpp.naicsCode || "",
+      setAsideType,
+      priority: "MEDIUM",
+      value: value || "",
+      closeDate: samOpp.responseDeadLine ? new Date(samOpp.responseDeadLine).toISOString().split("T")[0] : "",
+    }
+  }
+
+  const handleUrlDialogSuccess = (fetchedOpp: any) => {
+    console.log('[URL DIALOG] 🔔 Received fetched opportunity:', JSON.stringify(fetchedOpp, null, 2))
+    toast({
+      title: "Opportunity fetched successfully!",
+      description: `Found: ${fetchedOpp.title}`,
+    })
+
+    // Wait a bit before opening modal
+    setTimeout(() => {
+      const mappedData = mapSamGovOpportunityToForm(fetchedOpp)
+      console.log('[URL DIALOG] 🔄 Mapped data for form:', JSON.stringify(mappedData, null, 2))
+      setModalInitialData(mappedData)
+      setIsModalOpen(true)
+      setShowUrlDialog(false)
+      console.log('[URL DIALOG] 🔓 Modal opened with initial data')
+    }, 1000)
+  }
+
+  const handleUrlPasteClick = () => {
+    setShowUrlDialog(true)
+    setUrlInput("")
+    setFetchedOpportunity(null)
+  }
+
   const totalValue = opportunities.reduce((sum, opp) => sum + (opp.estimatedValueMax || 0), 0)
   const formattedTotalValue = new Intl.NumberFormat("en-US", {
     style: "currency",
@@ -986,8 +1133,22 @@ export function KanbanBoard() {
           </Button>
 
           <Button
+            className="relative bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white px-4 py-2 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 transform hover:scale-105 border-0 overflow-hidden group"
+            onClick={handleUrlPasteClick}
+            disabled={isDragging}
+          >
+            <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 transform translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700"></div>
+            <svg className="mr-2 h-4 w-4 relative z-10" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="m16.85 11.07 1.73 2.59-.96 1.44L17.96 12l-.6-.9-1.73 2.59-.47-1.42L13 12.35l.93-.35-.93-1.77-.47-1.42 2.09-1.55.47 1.42-.34.81z"/>
+              <path d="M17.8 10.53c-1.4-.8-3.39.19-4.18 1.59-.79 1.4.19 3.39 1.59 4.18 1.4.79 3.39-.19 4.18-1.59.79-1.4-.19-3.39-1.59-4.18z"/>
+              <path d="M6 9V6a3 3 0 0 1 3-3h10a1 1 0 0 1 1 1v11a3 3 0 0 1-3 3H5a3 3 0 0 1-3-3V3a1 1 0 0 1 1-1h3"/>
+            </svg>
+            <span className="font-semibold relative z-10">Paste SAM.gov URL</span>
+          </Button>
+
+          <Button
             className="relative bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white px-6 py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 border-0 overflow-hidden group"
-            onClick={() => { setIsModalOpen(true); setSelectedOpportunity(null); }}
+            onClick={() => { setIsModalOpen(true); setSelectedOpportunity(null); setModalInitialData(null); }}
             disabled={isDragging}
           >
             <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 transform translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700"></div>
@@ -1165,8 +1326,9 @@ export function KanbanBoard() {
       {/* New opportunity modals */}
       <AddOpportunityModal
         isOpen={isModalOpen && !selectedOpportunity}
-        onClose={() => setIsModalOpen(false)}
+        onClose={() => { setIsModalOpen(false); setModalInitialData(null); }}
         onSuccess={handleModalSuccess}
+        initialData={modalInitialData}
       />
 
       <EditOpportunityModal
@@ -1175,6 +1337,68 @@ export function KanbanBoard() {
         onClose={() => { setIsModalOpen(false); setSelectedOpportunity(null); }}
         onSuccess={handleModalSuccess}
       />
+
+      {/* URL Paste Modal */}
+      <Dialog open={showUrlDialog} onOpenChange={setShowUrlDialog}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="m16.85 11.07 1.73 2.59-.96 1.44L17.96 12l-.6-.9-1.73 2.59-.47-1.42L13 12.35l.93-.35-.93-1.77-.47-1.42 2.09-1.55.47 1.42-.34.81z"/>
+                <path d="M17.8 10.53c-1.4-.8-3.39.19-4.18 1.59-.79 1.4.19 3.39 1.59 4.18 1.4.79 3.39-.19 4.18-1.59.79-1.4-.19-3.39-1.59-4.18z"/>
+                <path d="M6 9V6a3 3 0 0 1 3-3h10a1 1 0 0 1 1 1v11a3 3 0 0 1-3 3H5a3 3 0 0 1-3-3V3a1 1 0 0 1 1-1h3"/>
+              </svg>
+              Paste SAM.gov Opportunity URL
+            </DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="url-input">
+                SAM.gov URL <span className="text-red-500">*</span>
+              </Label>
+              <Input
+                id="url-input"
+                value={urlInput}
+                onChange={(e) => setUrlInput(e.target.value)}
+                placeholder="https://sam.gov/workspace/contract/opp/123456789/view"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !urlLoading) {
+                    parseUrlAndFetchOpportunity()
+                  }
+                }}
+                className="w-full"
+                autoFocus
+              />
+              <p className="text-sm text-muted-foreground">
+                Paste a SAM.gov opportunity URL to automatically import opportunity details.
+              </p>
+
+            </div>
+
+            {fetchedOpportunity && (
+              <div className="border border-green-200 bg-green-50 rounded-lg p-3">
+                <div className="flex items-start gap-3">
+                  <CheckCircle className="h-5 w-5 text-green-600 flex-shrink-0 mt-0.5" />
+                  <div className="space-y-1">
+                    <h4 className="font-medium text-green-900">Opportunity Found</h4>
+                    <p className="text-sm text-green-700 font-medium">{fetchedOpportunity.title}</p>
+                    <p className="text-sm text-green-700">{fetchedOpportunity.solicitationNumber}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => { setShowUrlDialog(false); setUrlInput("") }} disabled={urlLoading}>
+              Cancel
+            </Button>
+            <Button onClick={parseUrlAndFetchOpportunity} disabled={!urlInput.trim() || urlLoading}>
+              {urlLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Fetch Opportunity
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Enhanced stage management modal */}
       <Dialog open={isStageModalOpen} onOpenChange={setIsStageModalOpen}>

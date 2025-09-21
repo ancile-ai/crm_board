@@ -14,12 +14,14 @@ interface AddOpportunityModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess?: (data?: any) => void;
+  initialData?: any;
 }
 
 export function AddOpportunityModal({
   isOpen,
   onClose,
   onSuccess,
+  initialData,
 }: AddOpportunityModalProps) {
   const [companies, setCompanies] = useState<any[]>([]);
   const [users, setUsers] = useState<any[]>([]);
@@ -29,7 +31,7 @@ export function AddOpportunityModal({
     if (isOpen) {
       fetchData();
     }
-  }, [isOpen]);
+  }, [isOpen, initialData]); // Add initialData to dependencies to refetch when it changes
 
   const fetchData = async () => {
     try {
@@ -43,8 +45,27 @@ export function AddOpportunityModal({
           companiesRes.json(),
           usersRes.json(),
         ]);
-        setCompanies(companiesData);
+
+        // If initialData has a companyId that's not in the companies list, it means it was just created
+        // and we need to add it to the list (e.g., from SAM.gov import)
+        let enhancedCompanies = companiesData;
+        if (initialData?.companyId) {
+          const hasCompany = companiesData.some((company: any) => company.id === initialData.companyId);
+          if (!hasCompany && initialData.company) {
+            console.log("[AddOpportunityModal] ➕ Adding newly created company from initialData:", initialData.company);
+            // Add the company from initialData to the list
+            enhancedCompanies = [...companiesData, initialData.company];
+          }
+        }
+
+        setCompanies(enhancedCompanies);
         setUsers(usersData);
+
+        console.log("[AddOpportunityModal] 📊 Enhanced companies list:", enhancedCompanies.length, "companies");
+        if (initialData?.companyId) {
+          const foundCompany = enhancedCompanies.find((company: any) => company.id === initialData.companyId);
+          console.log("[AddOpportunityModal] 🎯 Company lookup result:", foundCompany ? "Found" : "Not found", initialData.companyId);
+        }
       } else {
         throw new Error("Failed to fetch required data")
       }
@@ -59,7 +80,17 @@ export function AddOpportunityModal({
 
 
   const handleSubmit = (data: any) => {
-    onSuccess?.(data);
+    console.log("[AddOpportunityModal] 🎯 HandleSubmit called:", {
+      data,
+      hasCompanyId: data?.companyId ? 'yes' : 'no',
+      initialDataCompanyId: initialData?.companyId
+    });
+    if (onSuccess) {
+      console.log("[AddOpportunityModal] Calling onSuccess callback");
+      onSuccess(data);
+    } else {
+      console.log("[AddOpportunityModal] No onSuccess callback provided");
+    }
     onClose();
   };
 
@@ -105,6 +136,8 @@ export function AddOpportunityModal({
           ) : (
             <div className="w-full">
               <OpportunityForm
+                opportunity={undefined}
+                initialData={initialData}
                 companies={companies}
                 users={users}
                 onSubmit={handleSubmit}

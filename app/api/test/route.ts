@@ -7,30 +7,15 @@ import { db } from '@/lib/db'
 
 export async function GET(request: NextRequest) {
   try {
-    console.log('[TEST] GET request received')
-
     const session = await getServerSession(authOptions)
-    console.log('[TEST] Session:', {
-      exists: !!session,
-      user: session?.user ? {
-        email: session.user.email,
-        name: session.user.name
-      } : null
-    })
-
     if (!session?.user?.email?.endsWith('@ancile.io')) {
-      console.log('[TEST] Authentication failed - not ancile.io domain')
       return NextResponse.json({ error: 'Unauthorized - not ancile.io domain' }, { status: 401 })
     }
-
-    console.log('[TEST] Authentication passed')
 
     const opportunities = await db.opportunity.findMany({
       take: 5,
       select: { id: true, title: true, createdAt: true }
     })
-
-    console.log('[TEST] Database query successful, found', opportunities.length, 'opportunities')
 
     return NextResponse.json({
       success: true,
@@ -57,34 +42,17 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    console.log('[TEST] POST request received')
-
     const session = await getServerSession(authOptions)
-    console.log('[TEST] Session:', {
-      exists: !!session,
-      user: session?.user ? {
-        email: session.user.email,
-        name: session.user.name
-      } : null
-    })
-
     const body = await request.json()
-    console.log('[TEST] Request body:', body)
-
     if (!session?.user?.email?.endsWith('@ancile.io')) {
-      console.log('[TEST] Authentication failed - not ancile.io domain')
       return NextResponse.json({ error: 'Unauthorized - not ancile.io domain' }, { status: 401 })
     }
-
-    console.log('[TEST] Authentication passed')
 
     // Test database connection
     const user = await db.user.findFirst({
       where: { email: session?.user?.email },
       select: { id: true, email: true, name: true }
     })
-
-    console.log('[TEST] User lookup result:', user ? 'Found user' : 'User not found')
 
     return NextResponse.json({
       success: true,

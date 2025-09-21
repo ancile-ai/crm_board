@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -49,29 +49,36 @@ interface OpportunityFormProps {
   onSubmit?: (data: Opportunity) => void
   onCancel?: () => void
   hideCancelButton?: boolean
+  initialData?: any
 }
 
-export function OpportunityForm({ opportunity, companies, users, onSubmit, onCancel, hideCancelButton }: OpportunityFormProps) {
+export function OpportunityForm({ opportunity, companies, users, onSubmit, onCancel, hideCancelButton, initialData }: OpportunityFormProps) {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [localCompanies, setLocalCompanies] = useState(companies)
+
   const [formData, setFormData] = useState({
-    title: opportunity?.title || "",
-    description: opportunity?.description || "",
-    stage: opportunity?.stage || "LEAD",
-    priority: opportunity?.priority || "MEDIUM",
-    value: opportunity?.value?.toString() || "",
-    closeDate: opportunity?.closeDate?.split("T")[0] || "",
-    companyId: opportunity?.companyId || "",
-    assignedToId: opportunity?.assignedToId || "",
-    samGovId: opportunity?.samGovId || "",
-    naicsCode: opportunity?.naicsCode || "",
-    setAsideType: opportunity?.setAsideType,
-    contractType: opportunity?.contractType || "NO_CONTRACT_TYPE",
-    placeOfPerformance: opportunity?.placeOfPerformance || "",
-    opportunityUrl: opportunity?.opportunityUrl || "",
+    title: opportunity?.title || initialData?.title || "",
+    description: opportunity?.description || initialData?.description || "",
+    stage: opportunity?.stage || initialData?.stage || "LEAD",
+    priority: opportunity?.priority || initialData?.priority || "MEDIUM",
+    value: opportunity?.value?.toString() || initialData?.value || "",
+    closeDate: opportunity?.closeDate?.split("T")[0] || initialData?.closeDate || "",
+    companyId: opportunity?.companyId || initialData?.companyId || "",
+    assignedToId: opportunity?.assignedToId || initialData?.assignedToId || "",
+    samGovId: opportunity?.samGovId || initialData?.samGovId || "",
+    naicsCode: opportunity?.naicsCode || initialData?.naicsCode || "",
+    setAsideType: opportunity?.setAsideType || initialData?.setAsideType,
+    contractType: opportunity?.contractType || initialData?.contractType || "NO_CONTRACT_TYPE",
+    placeOfPerformance: opportunity?.placeOfPerformance || initialData?.placeOfPerformance || "",
+    opportunityUrl: opportunity?.opportunityUrl || initialData?.opportunityUrl || "",
   })
+
+  // Sync localCompanies when companies prop changes (e.g., when modal adds SAM.gov company)
+  useEffect(() => {
+    setLocalCompanies(companies);
+  }, [companies]);
 
 
 
@@ -127,11 +134,12 @@ export function OpportunityForm({ opportunity, companies, users, onSubmit, onCan
     try {
       const url = opportunity ? `/api/opportunities/${opportunity.id}` : "/api/opportunities"
       const method = opportunity ? "PUT" : "POST"
+      const requestPayload = JSON.stringify(formData)
 
       const response = await fetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+        body: requestPayload,
       })
 
       if (response.ok) {
@@ -143,10 +151,11 @@ export function OpportunityForm({ opportunity, companies, users, onSubmit, onCan
           router.refresh()
         }
       } else {
-        throw new Error("Failed to save opportunity")
+        const errorText = await response.text()
+        throw new Error(`HTTP ${response.status}: ${errorText}`)
       }
     } catch (error) {
-      console.error("Error saving opportunity:", error)
+      console.error("[OpportunityForm] Error saving opportunity:", error)
       alert("Failed to save opportunity. Please try again.")
     } finally {
       setLoading(false)
@@ -199,7 +208,7 @@ export function OpportunityForm({ opportunity, companies, users, onSubmit, onCan
               id="opportunityUrl"
               value={formData.opportunityUrl}
               onChange={(e) => handleChange("opportunityUrl", e.target.value)}
-              placeholder="sam.gov or https://sam.gov/opp/notice123/view"
+              placeholder="sam.gov or https://sam.gov/workspace/contract/opp/notice123/view"
               type="text"
               className={`w-full h-10 px-3 text-base border-gray-300 rounded-lg transition-shadow focus:shadow-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white ${errors.opportunityUrl ? 'border-red-300 focus:border-red-500 focus:ring-red-500' : 'border-gray-300'}`}
               required

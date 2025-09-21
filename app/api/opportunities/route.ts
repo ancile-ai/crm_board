@@ -37,12 +37,13 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  let body: any = null
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user?.email?.endsWith("@ancile.io")) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
-    const body = await request.json()
+    body = await request.json()
     const {
       title,
       description,
@@ -100,23 +101,57 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Safely parse the value to a number
+    const parsedValue = value && !isNaN(Number(value)) ? Number(value) : null;
+
+    // Map setAsideType from form to enum
+    const mapSetAsideType = (type: string | undefined): any => {
+      const mapping = {
+        "SMALL_BUSINESS": "SMALL_BUSINESS",
+        "EIGHT_A": "EIGHT_A",
+        "HUBZONE": "HUBZONE",
+        "WOSB": "WOSB",
+        "VOSB": "VOSB",
+        "SDVOSB": "SDVOSB",
+      };
+      return type && mapping[type as keyof typeof mapping] ? type : null;
+    };
+
+    // Map contractType from form to enum
+    const mapOpportunityType = (type: string): any => {
+      const mapping = {
+        "FIXED_PRICE": "RFP",
+        "COST_PLUS": "RFI",
+        "TIME_AND_MATERIALS": "RFQ",
+        "INDEFINITE_DELIVERY": "SOURCES_SOUGHT",
+        "NO_CONTRACT_TYPE": "RFP",
+      };
+      return mapping[type as keyof typeof mapping] || "RFP";
+    };
+
+    // Map priority from form to enum
+    const mapPriority = (priority: string): any => {
+      const validPriorities = ["LOW", "MEDIUM", "HIGH", "URGENT"];
+      return validPriorities.includes(priority) ? priority : "MEDIUM";
+    };
+
     const opportunity = await (db.opportunity as any).create({
       data: {
         title,
-        keyRequirements: description,
+        keyRequirements: description || null,
         agency: agency,
         contractVehicle: "SAM.gov",
         solicitationNumber: samGovId || null,
         estimatedValueMin: null,
-        estimatedValueMax: value ? Number.parseInt(value) : null,
+        estimatedValueMax: parsedValue,
         dueDate: closeDate ? new Date(closeDate) : null,
         currentStageId: defaultStageId,
         companyId: companyId || null,
         assignedToId: finalAssignedToId,
         naicsCodes: naicsCode ? [naicsCode] : [],
-        setAsideType: setAsideType as any,
-        opportunityType: contractType === "NO_CONTRACT_TYPE" ? "RFP" : (contractType as any) || "RFP",
-        priority: priority || "MEDIUM",
+        setAsideType: mapSetAsideType(setAsideType),
+        opportunityType: mapOpportunityType(contractType),
+        priority: mapPriority(priority),
         probability: 50,
         technicalFocus: [],
         teamingPartners: [],
@@ -127,6 +162,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(opportunity, { status: 201 })
   } catch (error) {
     console.error("Error creating opportunity:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    console.error("Request body:", body)
+
+    // Provide more detailed error message
+    const errorMessage = error instanceof Error ? error.message : "Unknown error occurred"
+    return NextResponse.json({
+      error: `Failed to create opportunity: ${errorMessage}`,
+      details: process.env.NODE_ENV === "development" ? errorMessage : undefined
+    }, { status: 500 })
   }
 }
