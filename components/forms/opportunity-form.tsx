@@ -13,6 +13,13 @@ import { CalendarIcon, DollarSign, Building2, User, FileText, Target, Briefcase,
 import { CompanyForm } from "@/components/forms/company-form"
 import { SearchableCompanySelect } from "@/components/forms/searchable-company-select"
 
+interface Stage {
+  id: string
+  name: string
+  color: string
+  order: number
+}
+
 interface Company {
   id: string
   name: string
@@ -57,11 +64,12 @@ export function OpportunityForm({ opportunity, companies, users, onSubmit, onCan
   const [loading, setLoading] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [localCompanies, setLocalCompanies] = useState(companies)
+  const [stages, setStages] = useState<Stage[]>([])
 
   const [formData, setFormData] = useState({
     title: opportunity?.title || initialData?.title || "",
     description: opportunity?.description || initialData?.description || "",
-    stage: opportunity?.stage || initialData?.stage || "LEAD",
+    stage: opportunity?.stage || initialData?.stage || "",
     priority: opportunity?.priority || initialData?.priority || "MEDIUM",
     value: opportunity?.value?.toString() || initialData?.value || "",
     closeDate: opportunity?.closeDate?.split("T")[0] || initialData?.closeDate || "",
@@ -74,6 +82,28 @@ export function OpportunityForm({ opportunity, companies, users, onSubmit, onCan
     placeOfPerformance: opportunity?.placeOfPerformance || initialData?.placeOfPerformance || "",
     opportunityUrl: opportunity?.opportunityUrl || initialData?.opportunityUrl || "",
   })
+
+  // Load stages from API
+  useEffect(() => {
+    const loadStages = async () => {
+      try {
+        const response = await fetch('/api/stages')
+        if (response.ok) {
+          const stagesData = await response.json()
+          setStages(stagesData)
+
+          // Set default stage to first stage if form is empty
+          if (!opportunity && !initialData?.stage && stagesData.length > 0) {
+            setFormData(prev => ({ ...prev, stage: stagesData[0].id }))
+          }
+        }
+      } catch (error) {
+        console.error('Error loading stages:', error)
+      }
+    }
+
+    loadStages()
+  }, [opportunity, initialData?.stage])
 
   // Sync localCompanies when companies prop changes (e.g., when modal adds SAM.gov company)
   useEffect(() => {
@@ -244,12 +274,17 @@ export function OpportunityForm({ opportunity, companies, users, onSubmit, onCan
                 <SelectValue placeholder="Select stage" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="LEAD" className="py-2 text-base">Lead</SelectItem>
-                <SelectItem value="QUALIFIED" className="py-2 text-base">Qualified</SelectItem>
-                <SelectItem value="PROPOSAL" className="py-2 text-base">Proposal</SelectItem>
-                <SelectItem value="NEGOTIATION" className="py-2 text-base">Negotiation</SelectItem>
-                <SelectItem value="WON" className="py-2 text-base">Won</SelectItem>
-                <SelectItem value="LOST" className="py-2 text-base">Lost</SelectItem>
+                {stages.map((stage) => (
+                  <SelectItem key={stage.id} value={stage.id} className="py-2 text-base">
+                    <div className="flex items-center gap-2">
+                      <div
+                        className="w-3 h-3 rounded-full flex-shrink-0"
+                        style={{ backgroundColor: stage.color }}
+                      ></div>
+                      {stage.name}
+                    </div>
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
