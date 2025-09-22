@@ -18,6 +18,17 @@ export const authOptions: NextAuthOptions = {
       checks: ["pkce", "state"],
     }),
   ],
+  cookies: {
+    sessionToken: {
+      name: `__Secure-next-auth.session-token`,
+      options: {
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+        secure: true,
+      },
+    },
+  },
   session: { strategy: "jwt" },
   callbacks: {
     async signIn({ user, account, profile }) {

@@ -1,7 +1,6 @@
 "use client"
 
 import { useState } from "react"
-import { signOut } from "next-auth/react"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Building2, LogOut } from "lucide-react"
@@ -29,7 +28,7 @@ export function DashboardHeader({ user }: DashboardHeaderProps) {
 
   const handleSignOut = () => {
     setIsOpen(false)
-    signOut()
+    window.location.href = '/api/logout'
   }
 
   return (
