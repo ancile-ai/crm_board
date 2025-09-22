@@ -23,13 +23,10 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const limit = parseInt(searchParams.get('limit') || '20')
 
-    // Fetch recent opportunities for the current user (assigned to them or created by them)
+    // Fetch recent opportunities (all users, to show team activities)
     const recentOpportunities = await db.opportunity.findMany({
       take: limit * 2, // Fetch more to account for edits
       orderBy: { updatedAt: 'desc' },
-      where: {
-        assignedToId: user.id
-      },
       select: {
         id: true,
         title: true,
@@ -46,13 +43,10 @@ export async function GET(request: NextRequest) {
       }
     })
 
-    // Fetch recent comments for the current user
+    // Fetch recent comments (all users, to show team activities)
     const recentComments = await db.comment.findMany({
       take: limit,
       orderBy: { createdAt: 'desc' },
-      where: {
-        userId: user.id
-      },
       include: {
         user: {
           select: {
@@ -71,13 +65,10 @@ export async function GET(request: NextRequest) {
       }
     })
 
-    // Fetch recent deletion activities for the current user
+    // Fetch recent deletion activities (all users, to show team activities)
     const recentDeletions = await (db as any).activityLog.findMany({
       take: limit,
       orderBy: { createdAt: 'desc' },
-      where: {
-        userId: user.id
-      },
       include: {
         user: {
           select: {
