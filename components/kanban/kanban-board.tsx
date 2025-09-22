@@ -13,8 +13,13 @@ import { Plus, Loader2 } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Calendar } from "@/components/ui/calendar"
+import { Badge } from "@/components/ui/badge"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu"
 import { toast } from "@/hooks/use-toast"
-import { CheckCircle } from "lucide-react"
+import { CheckCircle, CalendarIcon, Filter, X } from "lucide-react"
+import { format, parseISO, isBefore, startOfDay } from "date-fns"
 
 // Kanban Board Component
 
@@ -75,6 +80,16 @@ export function KanbanBoard() {
   const [showUrlDialog, setShowUrlDialog] = useState(false)
   const [fetchedOpportunity, setFetchedOpportunity] = useState<any>(null)
   const [modalInitialData, setModalInitialData] = useState<any>(null)
+
+  // Filter state
+  const [filters, setFilters] = useState({
+    priority: '',
+    company: '',
+    closeDateFrom: undefined as Date | undefined,
+    closeDateTo: undefined as Date | undefined,
+  })
+  const [companies, setCompanies] = useState<any[]>([])
+  const [showFilters, setShowFilters] = useState(false)
 
   const boardRef = useRef<HTMLDivElement | null>(null)
   const scrollRafRef = useRef<number | null>(null)
@@ -608,6 +623,18 @@ export function KanbanBoard() {
           console.error("[KANBAN] Error response:", errorText)
         }
 
+        // Load companies from API
+        const companiesResponse = await fetch('/api/companies')
+        console.log("[KANBAN] Companies response status:", companiesResponse.status)
+
+        if (companiesResponse.ok) {
+          const companiesList = await companiesResponse.json()
+          console.log("[KANBAN] Companies data:", companiesList)
+          setCompanies(companiesList)
+        } else {
+          console.error("[KANBAN] Failed to load companies:", companiesResponse.status)
+        }
+
         // Load opportunities from API (session will be automatically forwarded)
         const opportunitiesResponse = await fetch('/api/opportunities')
         console.log("[KANBAN] Opportunities response status:", opportunitiesResponse.status)
@@ -1087,6 +1114,138 @@ export function KanbanBoard() {
     setFetchedOpportunity(null)
   }
 
+  // Filter functionality
+  const updateFilter = useCallback((filterKey: string, value: string | Date | undefined) => {
+    setFilters(prev => ({
+      ...prev,
+      [filterKey]: value,
+    }))
+  }, [])
+
+  const clearFilter = useCallback((filterKey: string) => {
+    setFilters(prev => ({
+      ...prev,
+      [filterKey]: '',
+    }))
+  }, [])
+
+  const clearAllFilters = useCallback(() => {
+    setFilters({
+      priority: '',
+      company: '',
+      closeDateFrom: undefined,
+      closeDateTo: undefined,
+    })
+    setShowFilters(false)
+  }, [])
+
+  const buildFilterParams = useCallback(() => {
+    const params = new URLSearchParams()
+
+    if (filters.priority) params.set('priority', filters.priority)
+    if (filters.company) params.set('company', filters.company)
+    if (filters.closeDateFrom) params.set('closeDateFrom', filters.closeDateFrom.toISOString().split('T')[0])
+    if (filters.closeDateTo) params.set('closeDateTo', filters.closeDateTo.toISOString().split('T')[0])
+
+    return params.toString()
+  }, [filters])
+
+  const fetchFilteredOpportunities = useCallback(async () => {
+    try {
+      const filterParams = buildFilterParams()
+      const response = await fetch(`/api/opportunities${filterParams ? `?${filterParams}` : ''}`)
+      if (response.ok) {
+        const filteredOpportunities = await response.json()
+        setOpportunities(filteredOpportunities.map((opp: any) => ({
+          id: opp.id,
+          title: opp.title,
+          description: opp.description || opp.keyRequirements || "",
+          agency: opp.agency || "",
+          contractVehicle: opp.contractVehicle || "",
+          solicitationNumber: opp.solicitationNumber || "",
+          estimatedValueMin: opp.estimatedValueMin || 0,
+          estimatedValueMax: opp.estimatedValueMax || 0,
+          dueDate: opp.dueDate ? new Date(opp.dueDate) : undefined,
+          currentStageId: opp.currentStageId,
+          stage: "LEAD",
+          priority: opp.priority || "MEDIUM",
+          probability: opp.probability || 0,
+          opportunityType: opp.opportunityType || "RFP",
+          technicalFocus: opp.technicalFocus || [],
+          value: opp.estimatedValueMax?.toString() || "0",
+          closeDate: opp.dueDate || "",
+          companyId: opp.companyId || "",
+          assignedToId: opp.assignedToId || "",
+          samGovId: opp.samGovId || "",
+          naicsCode: opp.naicsCodes?.[0] || "",
+          setAsideType: opp.setAsideType,
+          contractType: opp.contractType,
+          placeOfPerformance: opp.placeOfPerformance || "",
+          opportunityUrl: opp.opportunityUrl || "",
+        })))
+        const hasActiveFilters = filters.priority || filters.company || filters.closeDateFrom || filters.closeDateTo
+        if (hasActiveFilters) {
+          toast({
+            title: "Opportunities filtered",
+            description: "Opportunities have been filtered based on your criteria.",
+          })
+        }
+      }
+    } catch (error) {
+      console.error("Error filtering opportunities:", error)
+      toast({
+        title: "Filter error",
+        description: "Failed to apply filters. Please try again.",
+        variant: "destructive",
+      })
+    }
+  }, [buildFilterParams, filters, toast])
+
+  // Apply filters when they change
+  useEffect(() => {
+    const hasActiveFilters = filters.priority || filters.company || filters.closeDateFrom || filters.closeDateTo
+    if (hasActiveFilters) {
+      fetchFilteredOpportunities()
+    } else {
+      // Reload all opportunities when filters are cleared
+      fetch('/api/opportunities').then(response => {
+        if (response.ok) {
+          return response.json()
+        }
+      }).then(opportunitiesData => {
+        if (opportunitiesData) {
+          setOpportunities(opportunitiesData.map((opp: any) => ({
+            id: opp.id,
+            title: opp.title,
+            description: opp.description || opp.keyRequirements || "",
+            agency: opp.agency || "",
+            contractVehicle: opp.contractVehicle || "",
+            solicitationNumber: opp.solicitationNumber || "",
+            estimatedValueMin: opp.estimatedValueMin || 0,
+            estimatedValueMax: opp.estimatedValueMax || 0,
+            dueDate: opp.dueDate ? new Date(opp.dueDate) : undefined,
+            currentStageId: opp.currentStageId,
+            stage: "LEAD",
+            priority: opp.priority || "MEDIUM",
+            probability: opp.probability || 0,
+            opportunityType: opp.opportunityType || "RFP",
+            technicalFocus: opp.technicalFocus || [],
+            value: opp.estimatedValueMax?.toString() || "0",
+            closeDate: opp.dueDate || "",
+            companyId: opp.companyId || "",
+            assignedToId: opp.assignedToId || "",
+            samGovId: opp.samGovId || "",
+            naicsCode: opp.naicsCodes?.[0] || "",
+            setAsideType: opp.setAsideType,
+            contractType: opp.contractType,
+            placeOfPerformance: opp.placeOfPerformance || "",
+            opportunityUrl: opp.opportunityUrl || "",
+          })))
+        }
+      }).catch(error => console.error("Error reloading opportunities:", error))
+    }
+  }, [filters, fetchFilteredOpportunities])
+
   const totalValue = opportunities.reduce((sum, opp) => sum + (opp.estimatedValueMax || 0), 0)
   const formattedTotalValue = new Intl.NumberFormat("en-US", {
     style: "currency",
@@ -1096,7 +1255,8 @@ export function KanbanBoard() {
   }).format(totalValue)
 
   return (
-    <div className={`w-full min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/20 flex flex-col relative overflow-hidden transition-all duration-200 ${isDragging ? 'drag-active' : ''}`} style={{ zIndex: 1 }}>
+    <div>
+      <div className={`w-full min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/20 flex flex-col relative overflow-hidden transition-all duration-200 ${isDragging ? 'drag-active' : ''}`} style={{ zIndex: 1 }}>
       {/* Enhanced decorative background */}
       <div className="absolute top-0 right-0 w-72 h-72 bg-gradient-to-br from-blue-400/8 to-purple-400/8 rounded-full blur-3xl -translate-y-36 translate-x-36 bg-decoration-float"></div>
       <div className="absolute bottom-0 left-0 w-96 h-96 bg-gradient-to-tr from-emerald-400/6 to-teal-400/6 rounded-full blur-3xl translate-y-48 -translate-x-48 bg-decoration-float" style={{animationDelay: '3s'}}></div>
@@ -1122,6 +1282,16 @@ export function KanbanBoard() {
         </div>
 
         <div className="flex items-center gap-3 flex-shrink-0">
+          <Button
+            variant="outline"
+            className={`text-slate-700 hover:text-slate-900 hover:border-slate-400 relative bg-white/80 backdrop-blur-sm px-4 py-2 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 border-slate-200 ${showFilters ? 'bg-blue-50 border-blue-400' : ''}`}
+            onClick={() => setShowFilters(!showFilters)}
+            disabled={isDragging}
+          >
+            <Filter className="mr-2 h-4 w-4" />
+            Filters {((filters.priority || filters.company || filters.closeDateFrom || filters.closeDateTo) ? '•' : '')}
+          </Button>
+
           <Button
             variant="outline"
             className="text-slate-700 hover:text-slate-900 hover:border-slate-400 relative bg-white/80 backdrop-blur-sm px-4 py-2 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 border-slate-200"
@@ -1158,168 +1328,251 @@ export function KanbanBoard() {
         </div>
       </div>
 
-      {/* Enhanced kanban board area */}
-      <div className="flex-1 overflow-hidden h-full min-h-0">
-        <DndContext
-          sensors={sensors}
-          collisionDetection={(args) => {
-            const { active } = args
-            const activeId = (active.id as string)
-
-            // Determine if we're dragging a stage or an opportunity
-            if (activeId.includes('_stage')) {
-              // Use simple rect intersection for stage dragging
-              return rectIntersection(args)
-            }
-
-            return customCollisionDetection(args)
-          }}
-          onDragEnd={(event) => {
-            const { active } = event
-            const activeId = active.id as string
-
-            // Route to appropriate handler
-            if (activeId.includes('_stage')) {
-              onStageDragEnd(event)
-            } else {
-              onDragEnd(event)
-            }
-          }}
-          onDragStart={(event) => {
-            const { active } = event
-            const activeId = active.id as string
-
-            // Route to appropriate handler
-            if (activeId.includes('_stage')) {
-              onStageDragStart(event)
-            } else {
-              onDragStart(event)
-            }
-          }}
-          onDragCancel={(event) => {
-            const { active } = event
-            const activeId = active.id as string
-
-            // Route to appropriate handler
-            if (activeId.includes('_stage')) {
-              onStageDragCancel()
-            } else {
-              onDragCancel()
-            }
-          }}
-          modifiers={[restrictToWindowEdges]}
-        >
-          <div ref={boardRef} className="kanban-columns h-full flex items-start gap-6 md:gap-8 overflow-x-auto pb-4 px-6 md:px-8">
-            {stages.map((stage, index) => (
-              <div key={`stage-wrapper-${stage.id}`} className="flex items-start">
-                {/* Stage Drop Zone Before Each Column (including first) */}
-                {isStageDragging && (
-                  <StageDropZone beforeIndex={index} />
-                )}
-
-                <KanbanColumn
-                  index={index}
-                  stage={stage}
-                  opportunities={getOpportunitiesForStage(stage.id)}
-                  onEdit={handleEdit}
-                  onDelete={handleDelete}
-                  onKeyboardMove={handleKeyboardMove}
-                  onEditStage={handleEditStage}
-                  onDeleteStage={handleDeleteStage}
-                  isDragging={isDragging}
-                  isStageDraggingActive={isStageDragging}
-                />
-              </div>
-            ))}
-
-            {/* Stage Drop Zone at the End */}
-            {isStageDragging && (
-              <StageDropZone beforeIndex={stages.length} />
-            )}
+      {/* Filters Section */}
+      {showFilters && (
+        <div className="relative bg-white/80 backdrop-blur-sm border-b border-slate-200/50 py-4 px-6 md:px-8">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-slate-900">Filter Opportunities</h2>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={clearAllFilters}
+              className="text-slate-600 hover:text-slate-900"
+            >
+              Clear all
+            </Button>
           </div>
 
-          {/* Enhanced drag overlay with better visual feedback */}
-          <DragOverlay>
-            {activeStage && (
-              <div className="rotate-2 scale-105 opacity-90">
-                <div className="bg-white rounded-2xl shadow-2xl border border-slate-200/60 min-w-[24rem] w-96 md:w-[28rem] max-h-96 overflow-hidden">
-                  {/* Column Header */}
-                  <div className="bg-gradient-to-r from-white via-slate-50/80 to-white backdrop-blur-md border-b border-slate-200/60 rounded-t-2xl">
-                    <div className="flex items-center justify-between px-6 py-5">
-                      <div className="flex items-center gap-4">
-                        <div className="relative">
-                          <div
-                            className="w-5 h-5 rounded-full shadow-lg ring-2 ring-white flex-shrink-0"
-                            style={{ backgroundColor: activeStage.color }}
-                          ></div>
-                          <div className="absolute inset-0 rounded-full" style={{ backgroundColor: activeStage.color, opacity: 0.3 }}></div>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            {/* Priority Filter */}
+            <div className="space-y-2">
+              <Label htmlFor="priority-filter" className="text-sm font-medium">Priority</Label>
+              <Select
+                value={filters.priority}
+                onValueChange={(value) => updateFilter('priority', value === 'all' ? '' : value)}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="All priorities" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All priorities</SelectItem>
+                  <SelectItem value="LOW">Low</SelectItem>
+                  <SelectItem value="MEDIUM">Medium</SelectItem>
+                  <SelectItem value="HIGH">High</SelectItem>
+                  <SelectItem value="URGENT">Urgent</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Company Filter */}
+            <div className="space-y-2">
+              <Label htmlFor="company-filter" className="text-sm font-medium">Company</Label>
+              <Select
+                value={filters.company}
+                onValueChange={(value) => updateFilter('company', value === 'all' ? '' : value)}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="All companies" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All companies</SelectItem>
+                  {companies.map((company) => (
+                    <SelectItem key={company.id} value={company.id}>
+                      {company.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Close Date From Filter */}
+            <div className="space-y-2">
+              <Label htmlFor="close-date-from-filter" className="text-sm font-medium">Close Date From</Label>
+              <input
+                type="date"
+                id="close-date-from-filter"
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                value={filters.closeDateFrom ? filters.closeDateFrom.toISOString().split('T')[0] : ''}
+                onChange={(e) => updateFilter('closeDateFrom', e.target.value ? new Date(e.target.value) : undefined)}
+              />
+            </div>
+
+            {/* Close Date To Filter */}
+            <div className="space-y-2">
+              <Label htmlFor="close-date-to-filter" className="text-sm font-medium">Close Date To</Label>
+              <input
+                type="date"
+                id="close-date-to-filter"
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                value={filters.closeDateTo ? filters.closeDateTo.toISOString().split('T')[0] : ''}
+                onChange={(e) => updateFilter('closeDateTo', e.target.value ? new Date(e.target.value) : undefined)}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Enhanced kanban board area */}
+      <DndContext
+        sensors={sensors}
+        collisionDetection={(args) => {
+          const { active } = args
+          const activeId = (active.id as string)
+
+          // Determine if we're dragging a stage or an opportunity
+          if (activeId.includes('_stage')) {
+            // Use rect intersection for stage dragging
+            return rectIntersection(args)
+          }
+
+          return customCollisionDetection(args)
+        }}
+        onDragEnd={(event) => {
+          const { active } = event
+          const activeId = active.id as string
+
+          // Route to appropriate handler
+          if (activeId.includes('_stage')) {
+            onStageDragEnd(event)
+          } else {
+            onDragEnd(event)
+          }
+        }}
+        onDragStart={(event) => {
+          const { active } = event
+          const activeId = active.id as string
+
+          // Route to appropriate handler
+          if (activeId.includes('_stage')) {
+            onStageDragStart(event)
+          } else {
+            onDragStart(event)
+          }
+        }}
+        onDragCancel={(event) => {
+          const { active } = event
+          const activeId = active.id as string
+
+          // Route to appropriate handler
+          if (activeId.includes('_stage')) {
+            onStageDragCancel()
+          } else {
+            onDragCancel()
+          }
+        }}
+        modifiers={[restrictToWindowEdges]}
+      >
+            <div ref={boardRef} className="kanban-columns h-full flex items-start gap-6 md:gap-8 overflow-x-auto pb-4 px-6 md:px-8">
+              {stages.map((stage, index) => (
+                <div key={`stage-wrapper-${stage.id}`} className="flex items-start">
+                  {/* Stage Drop Zone Before Each Column (including first) */}
+                  {isStageDragging && (
+                    <StageDropZone beforeIndex={index} />
+                  )}
+
+                  <KanbanColumn
+                    index={index}
+                    stage={stage}
+                    opportunities={getOpportunitiesForStage(stage.id)}
+                    onEdit={handleEdit}
+                    onDelete={handleDelete}
+                    onKeyboardMove={handleKeyboardMove}
+                    onEditStage={handleEditStage}
+                    onDeleteStage={handleDeleteStage}
+                    isDragging={isDragging}
+                    isStageDraggingActive={isStageDragging}
+                  />
+                </div>
+              ))}
+
+              {/* Stage Drop Zone at the End */}
+              {isStageDragging && (
+                <StageDropZone beforeIndex={stages.length} />
+              )}
+            </div>
+
+            {/* Enhanced drag overlay with better visual feedback */}
+            <DragOverlay>
+              {activeStage && (
+                <div className="rotate-2 scale-105 opacity-90">
+                  <div className="bg-white rounded-2xl shadow-2xl border border-slate-200/60 min-w-[24rem] w-96 md:w-[28rem] max-h-96 overflow-hidden">
+                    {/* Column Header */}
+                    <div className="bg-gradient-to-r from-white via-slate-50/80 to-white backdrop-blur-md border-b border-slate-200/60 rounded-t-2xl">
+                      <div className="flex items-center justify-between px-6 py-5">
+                        <div className="flex items-center gap-4">
+                          <div className="relative">
+                            <div
+                              className="w-5 h-5 rounded-full shadow-lg ring-2 ring-white flex-shrink-0"
+                              style={{ backgroundColor: activeStage.color }}
+                            ></div>
+                            <div className="absolute inset-0 rounded-full" style={{ backgroundColor: activeStage.color, opacity: 0.3 }}></div>
+                          </div>
+                          <h3 className="text-xl font-bold text-slate-900 leading-tight tracking-tight">{activeStage.name}</h3>
                         </div>
-                        <h3 className="text-xl font-bold text-slate-900 leading-tight tracking-tight">{activeStage.name}</h3>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <div className="bg-gradient-to-r from-slate-100 to-slate-200 px-4 py-2 rounded-xl text-sm font-bold text-slate-700 shadow-sm border border-slate-300/50">
-                          {getOpportunitiesForStage(activeStage.id).length}
+                        <div className="flex items-center gap-2">
+                          <div className="bg-gradient-to-r from-slate-100 to-slate-200 px-4 py-2 rounded-xl text-sm font-bold text-slate-700 shadow-sm border border-slate-300/50">
+                            {getOpportunitiesForStage(activeStage.id).length}
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                  {/* Show preview of opportunities */}
-                  <div className="bg-slate-50/60 rounded-b-2xl p-4">
-                    {getOpportunitiesForStage(activeStage.id).length === 0 ? (
-                      <div className="flex items-center justify-center py-8 text-slate-500">
-                        <span>Empty stage</span>
-                      </div>
-                    ) : (
-                      <div className="space-y-2 max-h-64 overflow-hidden">
-                        {getOpportunitiesForStage(activeStage.id).slice(0, 3).map((opp, index) => (
-                          <div key={opp.id} className="bg-white border border-slate-200 rounded-lg p-3 shadow-sm">
-                            <div className="flex items-start gap-2">
-                              <div className="flex-1 min-w-0">
-                                <h4 className="font-medium text-sm text-slate-900 line-clamp-1 mb-1">{opp.title}</h4>
-                                <div className="text-xs text-slate-500 line-clamp-1">{opp.agency}</div>
+                    {/* Show preview of opportunities */}
+                    <div className="bg-slate-50/60 rounded-b-2xl p-4">
+                      {getOpportunitiesForStage(activeStage.id).length === 0 ? (
+                        <div className="flex items-center justify-center py-8 text-slate-500">
+                          <span>Empty stage</span>
+                        </div>
+                      ) : (
+                        <div className="space-y-2 max-h-64 overflow-hidden">
+                          {getOpportunitiesForStage(activeStage.id).slice(0, 3).map((opp, index) => (
+                            <div key={opp.id} className="bg-white border border-slate-200 rounded-lg p-3 shadow-sm">
+                              <div className="flex items-start gap-2">
+                                <div className="flex-1 min-w-0">
+                                  <h4 className="font-medium text-sm text-slate-900 line-clamp-1 mb-1">{opp.title}</h4>
+                                  <div className="text-xs text-slate-500 line-clamp-1">{opp.agency}</div>
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        ))}
-                        {getOpportunitiesForStage(activeStage.id).length > 3 && (
-                          <div className="text-center text-sm text-slate-500 py-2">
-                            ...and {getOpportunitiesForStage(activeStage.id).length - 3} more
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
-            {activeItem && (
-              <div className="rotate-2 scale-105 overflow-hidden">
-                <div className="bg-card/95 backdrop-blur-sm border rounded-lg p-4 shadow-2xl scale-105 border-primary/30 bg-gradient-to-br from-blue-50/90 to-indigo-50/90 ring-4 ring-primary/20">
-                  <div className="flex items-start gap-3 mb-3">
-                    <div className="flex-1 min-w-0">
-                      <h3 className="font-semibold text-sm leading-tight text-foreground line-clamp-2 mb-2">
-                        {activeItem.title}
-                      </h3>
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                        <div className="h-3 w-3 rounded-full bg-muted-foreground text-white flex items-center justify-center text-xs">
-                          <span>•</span>
+                          ))}
+                          {getOpportunitiesForStage(activeStage.id).length > 3 && (
+                            <div className="text-center text-sm text-slate-500 py-2">
+                              ...and {getOpportunitiesForStage(activeStage.id).length - 3} more
+                            </div>
+                          )}
                         </div>
-                        <span className="truncate">{activeItem.agency}</span>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex items-center justify-between pt-2 border-t text-xs">
-                    <div className="text-xs bg-muted px-2 py-1 rounded">
-                      Dragging...
-                    </div>
-                    <div className="text-xs text-primary font-semibold">
-                      Stage: {findStageById(activeItem.currentStageId)?.name}
+                      )}
                     </div>
                   </div>
                 </div>
-              </div>
-            )}
-          </DragOverlay>
+              )}
+              {activeItem && (
+                <div className="rotate-2 scale-105 overflow-hidden">
+                  <div className="bg-card/95 backdrop-blur-sm border rounded-lg p-4 shadow-2xl scale-105 border-primary/30 bg-gradient-to-br from-blue-50/90 to-indigo-50/90 ring-4 ring-primary/20">
+                    <div className="flex items-start gap-3 mb-3">
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-semibold text-sm leading-tight text-foreground line-clamp-2 mb-2">
+                          {activeItem.title}
+                        </h3>
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          <div className="h-3 w-3 rounded-full bg-muted-foreground text-white flex items-center justify-center text-xs">
+                            <span>•</span>
+                          </div>
+                          <span className="truncate">{activeItem.agency}</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between pt-2 border-t text-xs">
+                      <div className="text-xs bg-muted px-2 py-1 rounded">
+                        Dragging...
+                      </div>
+                      <div className="text-xs text-primary font-semibold">
+                        Stage: {findStageById(activeItem.currentStageId)?.name}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </DragOverlay>
         </DndContext>
       </div>
 
@@ -1338,7 +1591,6 @@ export function KanbanBoard() {
         onSuccess={handleModalSuccess}
       />
 
-      {/* URL Paste Modal */}
       <Dialog open={showUrlDialog} onOpenChange={setShowUrlDialog}>
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>

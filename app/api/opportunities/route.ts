@@ -13,12 +13,22 @@ export async function GET(request: NextRequest) {
     const stage = searchParams.get("stage")
     const priority = searchParams.get("priority")
     const assignedTo = searchParams.get("assignedTo")
+    const company = searchParams.get("company")
+    const closeDateFrom = searchParams.get("closeDateFrom")
+    const closeDateTo = searchParams.get("closeDateTo")
 
     const opportunities = await db.opportunity.findMany({
       where: {
         ...(stage && { currentStageId: stage }),
         ...(priority && { priority: priority as any }),
         ...(assignedTo && { assignedToId: assignedTo }),
+        ...(company && { companyId: company }),
+        ...(closeDateFrom || closeDateTo ? {
+          dueDate: {
+            ...(closeDateFrom && { gte: new Date(closeDateFrom) }),
+            ...(closeDateTo && { lte: new Date(closeDateTo) }),
+          }
+        } : {}),
       },
       include: {
         company: true,
@@ -79,14 +89,25 @@ export async function POST(request: NextRequest) {
 
     // Get user ID from email if assignedToId not provided
     let finalAssignedToId = assignedToId;
-    if (!assignedToId) {
-      const user = await db.user.findUnique({
-        where: { email: session.user.email! },
-        select: { id: true }
-      });
-      if (user) {
-        finalAssignedToId = user.id;
+    if (!assignedToId && session?.user?.email) {
+      try {
+        const user = await db.user.findUnique({
+          where: { email: session.user.email },
+          select: { id: true }
+        });
+        if (user) {
+          finalAssignedToId = user.id;
+        } else {
+          console.warn(`User ${session.user.email} not found in database`);
+          finalAssignedToId = null; // Set to null explicitly if user doesn't exist
+        }
+      } catch (error) {
+        console.error('Error fetching user for assignment:', error);
+        finalAssignedToId = null; // Set to null on error
       }
+    } else if (!session?.user?.email) {
+      console.warn('No user session available');
+      finalAssignedToId = null; // No user to assign to
     }
 
     // Get company information if provided
