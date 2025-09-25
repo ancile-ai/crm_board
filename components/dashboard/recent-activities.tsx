@@ -3,9 +3,8 @@
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { ChevronLeft, ChevronRight, Plus, MessageSquare, RefreshCw, Edit, Trash2, Trash } from "lucide-react";
+import { RefreshCw, Trash, Plus, MessageSquare, Edit, Trash2 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
 interface Activity {
@@ -32,7 +31,6 @@ interface RecentActivitiesProps {
 export function RecentActivities({ className }: RecentActivitiesProps) {
   const { data: session } = useSession();
   const [activities, setActivities] = useState<Activity[]>([]);
-  const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const fetchActivities = async () => {
@@ -75,10 +73,6 @@ export function RecentActivities({ className }: RecentActivitiesProps) {
       return () => clearInterval(interval);
     }
   }, [session]);
-
-  const formatTimestamp = (timestamp: string) => {
-    return formatDistanceToNow(new Date(timestamp), { addSuffix: true });
-  };
 
   const getActivityIcon = (type: string) => {
     switch (type) {
@@ -154,98 +148,72 @@ export function RecentActivities({ className }: RecentActivitiesProps) {
   };
 
   return (
-    <>
-      {/* Toggle Button - Always Visible */}
-      <Button
-        variant="outline"
-        size="default"
-        className="fixed right-4 top-20 bg-white border-2 border-primary shadow-2xl hover:shadow-3xl hover:bg-gray-50 transition-all duration-200 rounded-full p-3 z-[101]"
-        onClick={() => setIsOpen(!isOpen)}
-      >
-        {isOpen ? (
-          <ChevronRight className="h-5 w-5 text-primary" />
-        ) : (
-          <ChevronLeft className="h-5 w-5 text-primary" />
-        )}
-      </Button>
-
-      {/* Side Panel */}
-      <div
-        className={`fixed right-0 top-16 bottom-0 z-[100] transition-all duration-300 overflow-hidden ${
-          isOpen ? 'w-80' : 'w-0'
-        }`}
-      >
-        <Card className="h-full rounded-none border-0 border-l">
-          <CardHeader className="pb-4">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-lg">Recent Activities</CardTitle>
-              <div className="flex items-center gap-1">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={clearActivities}
-                  disabled={loading}
-                  className="h-8 w-8 p-0"
-                  title="Clear activities"
-                >
-                  <Trash className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={fetchActivities}
-                  disabled={loading}
-                  className="h-8 w-8 p-0"
-                  title="Refresh activities"
-                >
-                  <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-                </Button>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent className="px-6 pb-6 h-full overflow-hidden">
-            <ScrollArea className="h-full">
-              {loading ? (
-                <div className="space-y-4">
-                  {[...Array(5)].map((_, i) => (
-                    <div key={i} className="flex items-start gap-3 p-3 rounded-lg bg-muted/50">
-                      <div className="w-8 h-8 bg-muted rounded animate-pulse" />
-                      <div className="flex-1 space-y-2">
-                        <div className="h-4 bg-muted rounded animate-pulse" />
-                        <div className="h-3 bg-muted rounded animate-pulse w-3/4" />
-                      </div>
-                      <div className="w-16 h-3 bg-muted rounded animate-pulse" />
-                    </div>
-                  ))}
-                </div>
-              ) : activities.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  <p>No recent activities</p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {activities.map((activity) => (
-                    <div
-                      key={activity.id}
-                      className="flex items-start gap-3 p-3 rounded-lg hover:bg-muted/50 transition-colors border border-transparent hover:border-border/50"
-                    >
-                      <div className="w-8 h-8 rounded-full bg-background border flex items-center justify-center mt-0.5">
-                        {getActivityIcon(activity.type)}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        {getActivityText(activity)}
-                        <p className="text-xs text-muted-foreground mt-2">
-                          {formatTimestamp(activity.timestamp)}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </ScrollArea>
-          </CardContent>
-        </Card>
+    <div className={className}>
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-lg font-semibold">Recent</h3>
+        <div className="flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={clearActivities}
+            disabled={loading}
+            className="h-8 w-8 p-0"
+            title="Clear activities"
+          >
+            <Trash className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={fetchActivities}
+            disabled={loading}
+            className="h-8 w-8 p-0"
+            title="Refresh activities"
+          >
+            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+          </Button>
+        </div>
       </div>
-    </>
+
+      <ScrollArea className="h-full">
+        {loading ? (
+          <div className="space-y-4">
+            {[...Array(5)].map((_, i) => (
+              <div key={i} className="flex items-start gap-3 p-3 rounded-lg bg-muted/50">
+                <div className="w-8 h-8 bg-muted rounded animate-pulse" />
+                <div className="flex-1 space-y-2">
+                  <div className="h-4 bg-muted rounded animate-pulse" />
+                  <div className="h-3 bg-muted rounded animate-pulse w-3/4" />
+                </div>
+                <div className="w-16 h-3 bg-muted rounded animate-pulse" />
+              </div>
+            ))}
+          </div>
+        ) : activities.length === 0 ? (
+          <div className="text-center py-8 text-muted-foreground">
+            <p>No recent activities</p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {activities.map((activity) => (
+              <div
+                key={activity.id}
+                className="flex items-start gap-3 p-3 rounded-lg hover:bg-muted/50 transition-colors border border-transparent hover:border-border/50"
+              >
+                <div className="w-8 h-8 rounded-full bg-background border flex items-center justify-center mt-0.5">
+                  {getActivityIcon(activity.type)}
+                </div>
+                <div className="flex-1 min-w-0">
+                  {getActivityText(activity)}
+                  <p className="text-xs text-muted-foreground mt-2">
+                    {formatDistanceToNow(new Date(activity.timestamp), { addSuffix: true })}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </ScrollArea>
+    </div>
   );
 }

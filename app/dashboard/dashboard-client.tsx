@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { KanbanBoard } from "@/components/kanban/kanban-board";
 import { DashboardHeader } from "@/components/dashboard/dashboard-header";
-import { RecentActivities } from "@/components/dashboard/recent-activities";
+import { DashboardSidebar } from "@/components/dashboard/dashboard-sidebar";
 
 export function DashboardClient() {
   const { data: session, status } = useSession();
@@ -51,7 +51,7 @@ export function DashboardClient() {
       <main className="w-full min-h-0 overflow-hidden">
         <KanbanBoard />
       </main>
-      <RecentActivities />
+      <DashboardSidebar />
     </div>
   );
 }

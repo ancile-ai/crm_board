@@ -50,6 +50,10 @@ model User {
   opportunities       Opportunity[]
   sessions            Session[]
   activityLogs        ActivityLog[]
+  createdTodos        Todo[]        @relation("TodoCreator")
+  assignedTodos       Todo[]        @relation("TodoAssignee")
+  todoComments        TodoComment[]
+  todoCollaborators   TodoCollaborator[]
 }
 
 model VerificationToken {
@@ -257,4 +261,80 @@ enum Priority {
   MEDIUM
   HIGH
   URGENT
+}
+
+enum TodoPriority {
+  HIGH
+  MEDIUM
+  LOW
+}
+
+enum TodoRole {
+  VIEWER
+  EDITOR
+  OWNER
+}
+
+model Todo {
+  id          String       @id @default(cuid())
+  title       String
+  description String?
+  priority    TodoPriority @default(MEDIUM)
+  dueDate     DateTime?
+  completed   Boolean      @default(false)
+  completedAt DateTime?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  // Relationships
+  creatorId    String
+  creator      User            @relation("TodoCreator", fields: [creatorId], references: [id])
+  assignedToId String?
+  assignedTo   User?           @relation("TodoAssignee", fields: [assignedToId], references: [id])
+  comments     TodoComment[]
+  categories   TodoCategory[]
+  collaborators TodoCollaborator[]
+
+  @@index([dueDate])
+  @@index([completed])
+  @@index([assignedToId])
+  @@index([creatorId])
+}
+
+model TodoCategory {
+  id     String @id @default(cuid())
+  name   String @unique
+  color  String @default("#6b7280")
+  todos  Todo[]
+
+  @@index([name])
+}
+
+model TodoComment {
+  id        String   @id @default(cuid())
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  todoId String
+  todo   Todo   @relation(fields: [todoId], references: [id], onDelete: Cascade)
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  @@index([todoId])
+  @@index([userId])
+}
+
+model TodoCollaborator {
+  id     String    @id @default(cuid())
+  role   TodoRole  @default(VIEWER)
+
+  todoId String
+  todo   Todo   @relation(fields: [todoId], references: [id], onDelete: Cascade)
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  @@unique([todoId, userId])
+  @@index([todoId])
+  @@index([userId])
 }
