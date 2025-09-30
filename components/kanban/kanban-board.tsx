@@ -457,25 +457,57 @@ export function KanbanBoard() {
     }
   }, [handlePointerMove])
 
-  // Enhanced auto-refresh mechanism to sync with external changes
+  // Enhanced auto-refresh mechanism with visibility detection and throttling
   useEffect(() => {
     let pollingInterval: NodeJS.Timeout
     let lastUpdateCheck = Date.now()
     let consecutiveFailures = 0
     const maxConsecutiveFailures = 3
+    let etag: string | null = null
+    let isVisible = true
+
+    // Visibility change handler to pause/resume polling
+    const handleVisibilityChange = () => {
+      isVisible = !document.hidden
+      if (isVisible && !pollingInterval) {
+        // Resume polling when tab becomes visible
+        scheduleNextPoll(15000)
+      }
+    }
+
+    // Listen for visibility changes
+    document.addEventListener('visibilitychange', handleVisibilityChange)
 
     const pollForUpdates = async () => {
-      // Only poll if not currently loading and not in the middle of drag operations
-      if (!loading && !isDragging && !isStageDragging) {
+      // Only poll if tab is visible, not currently loading, and not in the middle of drag operations
+      if (isVisible && !loading && !isDragging && !isStageDragging) {
         try {
+          const headers: Record<string, string> = {}
+
+          // Use ETag for conditional requests
+          if (etag) {
+            headers['If-None-Match'] = etag
+          }
+
           const opportunitiesResponse = await fetch('/api/opportunities', {
             headers: {
+              ...headers,
               'Cache-Control': 'no-cache',
               'Pragma': 'no-cache'
             }
           })
 
-          if (opportunitiesResponse.ok) {
+          if (opportunitiesResponse.status === 304) {
+            // Not modified - no need to update
+            console.log('[KANBAN] Data not modified (304), skipping update')
+            consecutiveFailures = 0
+          } else if (opportunitiesResponse.ok) {
+            // Store ETag for future conditional requests
+            const responseEtag = opportunitiesResponse.headers.get('ETag')
+            if (responseEtag) {
+              etag = responseEtag
+            }
+
             const latestOpportunities = await opportunitiesResponse.json()
             const currentTime = Date.now()
 
@@ -500,7 +532,7 @@ export function KanbanBoard() {
                 return changedFields.some(field => {
                   if (field === 'dueDate') {
                     const latestDate = latestOpp.dueDate ? new Date(latestOpp.dueDate).getTime() : null
-                    const currentDate = currentOpp.dueDate ? currentOpp.dueDate.getTime() : null
+                    const currentDate = currentOpp.dueDate ? new Date(currentOpp.dueDate).getTime() : null
                     return latestDate !== currentDate
                   }
                   console.log(`[KANBAN] Comparing ${field}: ${latestOpp[field]} vs ${currentOpp[field]}`)
@@ -562,20 +594,33 @@ export function KanbanBoard() {
         }
       }
 
-      // Adaptive polling: increase interval if there are consecutive failures
-      const baseInterval = 15000 // 15 seconds
-      const currentInterval = baseInterval * Math.pow(2, Math.min(consecutiveFailures, 3))
-
-      pollingInterval = setTimeout(pollForUpdates, currentInterval)
+      // Schedule next poll
+      scheduleNextPoll()
     }
 
-    // Start polling
-    pollingInterval = setTimeout(pollForUpdates, 15000) // Initial delay of 15 seconds
+    const scheduleNextPoll = (delay?: number) => {
+      if (pollingInterval) {
+        clearTimeout(pollingInterval)
+      }
+
+      if (isVisible) {
+        // Adaptive polling: increase interval if there are consecutive failures
+        const baseInterval = 30000 // 30 seconds (increased from 15s)
+        const currentInterval = delay || (baseInterval * Math.pow(2, Math.min(consecutiveFailures, 3)))
+        pollingInterval = setTimeout(pollForUpdates, currentInterval)
+      }
+    }
+
+    // Start polling if visible
+    if (isVisible) {
+      pollingInterval = setTimeout(pollForUpdates, 30000) // Initial delay of 30 seconds
+    }
 
     return () => {
       if (pollingInterval) {
         clearTimeout(pollingInterval)
       }
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
     }
   }, [opportunities.length, loading, isDragging, isStageDragging])
 
@@ -1201,13 +1246,27 @@ export function KanbanBoard() {
     }
   }, [buildFilterParams, filters, toast])
 
-  // Apply filters when they change
+  // Debounced version of filter fetching to prevent rapid API calls
+  const debouncedFilterFetch = useCallback(
+    (() => {
+      let timeoutId: NodeJS.Timeout
+      return () => {
+        clearTimeout(timeoutId)
+        timeoutId = setTimeout(() => {
+          fetchFilteredOpportunities()
+        }, 300) // 300ms debounce
+      }
+    })(),
+    [fetchFilteredOpportunities]
+  )
+
+  // Apply filters when they change (debounced)
   useEffect(() => {
     const hasActiveFilters = filters.priority || filters.company || filters.closeDateFrom || filters.closeDateTo
     if (hasActiveFilters) {
-      fetchFilteredOpportunities()
+      debouncedFilterFetch()
     } else {
-      // Reload all opportunities when filters are cleared
+      // Reload all opportunities when filters are cleared (immediate, no debounce needed)
       fetch('/api/opportunities').then(response => {
         if (response.ok) {
           return response.json()
@@ -1244,7 +1303,7 @@ export function KanbanBoard() {
         }
       }).catch(error => console.error("Error reloading opportunities:", error))
     }
-  }, [filters, fetchFilteredOpportunities])
+  }, [filters, debouncedFilterFetch])
 
   const totalValue = opportunities.reduce((sum, opp) => sum + (opp.estimatedValueMax || 0), 0)
   const formattedTotalValue = new Intl.NumberFormat("en-US", {

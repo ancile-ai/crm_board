@@ -2,6 +2,9 @@ import { type NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { db } from "@/lib/db"
+import crypto from "crypto"
+
+export const dynamic = 'force-dynamic'
 
 export async function GET(request: NextRequest) {
   try {
@@ -39,7 +42,28 @@ export async function GET(request: NextRequest) {
       orderBy: { updatedAt: "desc" },
     })
 
-    return NextResponse.json(opportunities)
+    // Generate ETag based on the data content
+    const etagContent = JSON.stringify({
+      opportunities: opportunities.map(opp => ({
+        id: opp.id,
+        updatedAt: opp.updatedAt,
+        count: opportunities.length
+      })),
+      params: { stage, priority, assignedTo, company, closeDateFrom, closeDateTo }
+    })
+    const etag = `"${crypto.createHash('md5').update(etagContent).digest('hex')}"`
+
+    // Check if client provided If-None-Match header
+    const ifNoneMatch = request.headers.get('if-none-match')
+    if (ifNoneMatch && ifNoneMatch === etag) {
+      // Data hasn't changed, return 304 Not Modified
+      return new NextResponse(null, { status: 304 })
+    }
+
+    const response = NextResponse.json(opportunities)
+    response.headers.set('ETag', etag)
+    response.headers.set('Cache-Control', 'no-cache, private')
+    return response
   } catch (error) {
     console.error("Error fetching opportunities:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
